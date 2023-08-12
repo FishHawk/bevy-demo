@@ -198,12 +198,16 @@ fn update_camera_mode(
 fn control_selected_moveable(
     boundary: ResMut<CameraBoundary>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut moveable_query: Query<&mut Moveable>,
+    mut moveable_query: Query<(Entity, &mut Moveable)>,
 ) {
-    if let CameraMode::Follow(entity) = boundary.mode {
-        if let Ok(mut moveable) = moveable_query.get_mut(entity) {
-            moveable.intend_horizontal = MoveIntendHorizontal::None;
-            moveable.intend_vertical = MoveIntendVertical::None;
+    let selected_entity = match boundary.mode {
+        CameraMode::Free => Entity::PLACEHOLDER,
+        CameraMode::Follow(entity) => entity,
+    };
+    for (entity, mut moveable) in moveable_query.iter_mut() {
+        moveable.intend_horizontal = MoveIntendHorizontal::None;
+        moveable.intend_vertical = MoveIntendVertical::None;
+        if entity == selected_entity {
             if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::A) {
                 moveable.intend_horizontal = MoveIntendHorizontal::Left;
             }
