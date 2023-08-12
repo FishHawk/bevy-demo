@@ -208,18 +208,30 @@ fn control_selected_moveable(
         moveable.intend_horizontal = MoveIntendHorizontal::None;
         moveable.intend_vertical = MoveIntendVertical::None;
         if entity == selected_entity {
+            let mut direction_x = 0;
+            let mut direction_y = 0;
             if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::A) {
-                moveable.intend_horizontal = MoveIntendHorizontal::Left;
+                direction_x -= 1;
             }
             if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::D) {
-                moveable.intend_horizontal = MoveIntendHorizontal::Right;
+                direction_x += 1;
             }
             if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
-                moveable.intend_vertical = MoveIntendVertical::Up;
+                direction_y += 1;
             }
             if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
-                moveable.intend_vertical = MoveIntendVertical::Down;
+                direction_y -= 1;
             }
+            moveable.intend_horizontal = match direction_x {
+                x if x < 0 => MoveIntendHorizontal::Left,
+                x if x > 0 => MoveIntendHorizontal::Right,
+                _ => MoveIntendHorizontal::None,
+            };
+            moveable.intend_vertical = match direction_y {
+                y if y < 0 => MoveIntendVertical::Down,
+                y if y > 0 => MoveIntendVertical::Up,
+                _ => MoveIntendVertical::None,
+            };
         }
     }
 }

@@ -1,6 +1,8 @@
 use bevy::{input::mouse::MouseWheel, prelude::*, window::PrimaryWindow};
 
-use crate::{moveable_bundle, solid_bundle, MoveableBundle, SolidBundle};
+use crate::{
+    moveable_bundle, solid_bundle, stair_bundle, MoveableBundle, SolidBundle, StairBundle,
+};
 
 #[derive(Default)]
 pub enum CameraMode {
@@ -30,21 +32,35 @@ fn sprite_placeholder(position: Vec2, size: Vec2, z: f32, color: Color) -> Sprit
     }
 }
 
-fn person_bundle(position: Vec2, size: Vec2) -> (SpriteBundle, MoveableBundle) {
+fn debug_person_bundle(position: Vec2, size: Vec2) -> (SpriteBundle, MoveableBundle) {
     (
         sprite_placeholder(position, size, 9.5, Color::RED),
-        moveable_bundle(30.0),
+        moveable_bundle(80.0),
     )
 }
 
-fn dirt_bundle(position: Vec2, size: Vec2) -> (SpriteBundle, SolidBundle) {
+fn debug_stair_bundle_pair(position1: Vec2, position2: Vec2) -> Vec<(SpriteBundle, StairBundle)> {
+    let size = Vec2::new(20.0, 2.0);
+    vec![
+        (
+            sprite_placeholder(position1, size, 9.4, Color::BLUE),
+            stair_bundle(position2 - position1),
+        ),
+        (
+            sprite_placeholder(position2, size, 9.4, Color::BLUE),
+            stair_bundle(position1 - position2),
+        ),
+    ]
+}
+
+fn debug_dirt_bundle(position: Vec2, size: Vec2) -> (SpriteBundle, SolidBundle) {
     (
         sprite_placeholder(position, size, 10.0, Color::BLACK),
         solid_bundle(),
     )
 }
 
-fn room_bundle(position: Vec2, size: Vec2) -> SpriteBundle {
+fn debug_room_bundle(position: Vec2, size: Vec2) -> SpriteBundle {
     sprite_placeholder(position, size, 9.0, Color::GRAY)
 }
 
@@ -69,40 +85,67 @@ pub fn spwan_shelter(commands: &mut Commands) {
         mode: CameraMode::Free,
     });
 
-    commands.spawn(person_bundle(Vec2::new(0.0, 20.0), Vec2::new(10.0, 10.0)));
+    commands.spawn(debug_person_bundle(
+        Vec2::new(0.0, -82.0),
+        Vec2::new(10.0, 5.0),
+    ));
 
     // left border
-    commands.spawn(dirt_bundle(
+    commands.spawn(debug_dirt_bundle(
         Vec2::new(-width, 0.0),
         Vec2::new(BORDER, height),
     ));
 
     // right border
-    commands.spawn(dirt_bundle(
+    commands.spawn(debug_dirt_bundle(
         Vec2::new(width + BORDER, 0.0),
         Vec2::new(BORDER, height),
     ));
 
     // bottom border
-    commands.spawn(dirt_bundle(
+    commands.spawn(debug_dirt_bundle(
         Vec2::new(width, -height + BORDER),
         Vec2::new(2.0 * width, BORDER),
     ));
 
     // layers
     for y in 0..room_number.y {
+        let position_y = -(y as f32) * (LAYER_HEIGHT + INTERVAL);
+        // rooms
         for x in 0..room_number.x {
-            commands.spawn(room_bundle(
-                Vec2::new(
-                    width - (x as f32) * ROOM_WIDTH,
-                    -(y as f32) * (LAYER_HEIGHT + INTERVAL) - INTERVAL,
-                ),
+            commands.spawn(debug_room_bundle(
+                Vec2::new(width - (x as f32) * ROOM_WIDTH, position_y - INTERVAL),
                 Vec2::new(ROOM_WIDTH, LAYER_HEIGHT),
             ));
         }
 
-        commands.spawn(dirt_bundle(
-            Vec2::new(width, -(y as f32) * (LAYER_HEIGHT + INTERVAL)),
+        // stair
+        commands.spawn_batch(debug_stair_bundle_pair(
+            Vec2::new(
+                -width + STAIR_WIDTH,
+                position_y - INTERVAL - LAYER_HEIGHT + 2.0,
+            ),
+            Vec2::new(
+                -width + 20.0,
+                position_y - INTERVAL - LAYER_HEIGHT / 2.0 + 2.0,
+            ),
+        ));
+
+        commands.spawn_batch(debug_stair_bundle_pair(
+            Vec2::new(
+                -width + 20.0,
+                position_y - INTERVAL - LAYER_HEIGHT / 2.0 + 2.0,
+            ),
+            Vec2::new(-width + STAIR_WIDTH, position_y + 2.0),
+        ));
+        commands.spawn(debug_dirt_bundle(
+            Vec2::new(-width + 10.0, position_y - INTERVAL - LAYER_HEIGHT / 2.0),
+            Vec2::new(10.0, INTERVAL),
+        ));
+
+        // ceil
+        commands.spawn(debug_dirt_bundle(
+            Vec2::new(width, position_y),
             Vec2::new(2.0 * width, INTERVAL),
         ));
     }
