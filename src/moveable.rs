@@ -56,7 +56,7 @@ pub fn moveable_bundle(speed: f32) -> MoveableBundle {
         RigidBody::Dynamic,
         Collider::cuboid(0.5, 0.5),
         LockedAxes::ROTATION_LOCKED,
-        CollisionGroups::new(GROUP_MOVEABLE, Group::ALL),
+        CollisionGroups::new(GROUP_MOVEABLE, GROUP_SOLID | GROUP_STAIR),
     )
 }
 

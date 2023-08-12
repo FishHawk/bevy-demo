@@ -185,7 +185,7 @@ fn update_camera_mode(
         {
             rapier_context.intersections_with_point(
                 click_position,
-                QueryFilter::from(CollisionGroups::new(GROUP_MOVEABLE, GROUP_MOVEABLE)),
+                QueryFilter::from(CollisionGroups::new(GROUP_SOLID, GROUP_MOVEABLE)),
                 |entity| {
                     boundary.mode = CameraMode::Follow(entity);
                     false
