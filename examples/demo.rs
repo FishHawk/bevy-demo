@@ -1,7 +1,11 @@
 use std::f32::consts::PI;
 
-use bevy::{prelude::*, window::close_on_esc};
+use bevy::{
+    prelude::*,
+    window::{close_on_esc, PrimaryWindow},
+};
 use bevy_demo::*;
+use bevy_rapier2d::prelude::*;
 
 #[derive(Resource, Default)]
 struct GameDateTime {
@@ -17,14 +21,18 @@ struct GameDateTimeText;
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Demo".into(),
-                    resolution: (1980., 1080.).into(),
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Demo".into(),
+                        resolution: (1980., 1080.).into(),
+                        ..default()
+                    }),
                     ..default()
-                }),
-                ..default()
-            }),
+                })
+                .set(ImagePlugin::default_nearest()),
+            RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(30.0),
+            RapierDebugRenderPlugin::default(),
             BackgroundPlugin,
         ))
         .add_systems(Startup, setup)
@@ -33,10 +41,14 @@ fn main() {
             (
                 //
                 close_on_esc,
+                control_selected_moveable,
+                update_moveable,
                 day_cycle,
-                move_camera_free.before(BackgroundSystems),
+                update_camera_mode,
+                update_camera.before(BackgroundSystems),
                 time_change,
-            ),
+            )
+                .chain(),
         )
         .insert_resource(GameDateTime {
             time_ratio: 0.1,
@@ -69,11 +81,11 @@ fn setup(
                 background_images,
             ),
             background: Background {
-                position: Vec2::new(0.0, -324.0),
+                position: Vec2::new(0.0, -324.0 / 2.0),
                 offset: Vec2::new(0.0, 1.5),
                 speed,
                 z,
-                scale: 1.0,
+                scale: 0.5,
                 ..default()
             },
         });
@@ -151,5 +163,59 @@ fn time_change(mut game_date_time: ResMut<GameDateTime>, keyboard_input: Res<Inp
     }
     if keyboard_input.just_pressed(KeyCode::E) {
         game_date_time.time = ((game_date_time.time * 24.0 + 1.0).floor() / 24.0).fract();
+    }
+}
+
+fn update_camera_mode(
+    rapier_context: Res<RapierContext>,
+    mut boundary: ResMut<CameraBoundary>,
+    buttons: Res<Input<MouseButton>>,
+    windows_query: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+) {
+    if buttons.just_pressed(MouseButton::Left) {
+        let (camera, camera_transform) = camera_query.single();
+        let window = windows_query.single();
+
+        boundary.mode = CameraMode::Free;
+        if let Some(click_position) = window
+            .cursor_position()
+            .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
+            .map(|ray| ray.origin.truncate())
+        {
+            rapier_context.intersections_with_point(
+                click_position,
+                QueryFilter::from(CollisionGroups::new(GROUP_MOVEABLE, GROUP_MOVEABLE)),
+                |entity| {
+                    boundary.mode = CameraMode::Follow(entity);
+                    false
+                },
+            );
+        }
+    }
+}
+
+fn control_selected_moveable(
+    boundary: ResMut<CameraBoundary>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut moveable_query: Query<&mut Moveable>,
+) {
+    if let CameraMode::Follow(entity) = boundary.mode {
+        if let Ok(mut moveable) = moveable_query.get_mut(entity) {
+            moveable.intend_horizontal = MoveIntendHorizontal::None;
+            moveable.intend_vertical = MoveIntendVertical::None;
+            if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::A) {
+                moveable.intend_horizontal = MoveIntendHorizontal::Left;
+            }
+            if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::D) {
+                moveable.intend_horizontal = MoveIntendHorizontal::Right;
+            }
+            if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
+                moveable.intend_vertical = MoveIntendVertical::Up;
+            }
+            if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
+                moveable.intend_vertical = MoveIntendVertical::Down;
+            }
+        }
     }
 }
