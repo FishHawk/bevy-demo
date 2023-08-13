@@ -3,7 +3,7 @@ use bevy::{
     window::PrimaryWindow,
 };
 
-use crate::{solid_bundle, stair_bundle, SolidBundle, StairBundle};
+use crate::{solid_bundle, stair_bundle, MainCamera, SolidBundle, StairBundle};
 
 #[derive(Default)]
 pub enum CameraMode {
@@ -164,8 +164,8 @@ pub fn update_camera(
     keyboard_input: Res<Input<KeyCode>>,
     mut wheel_events: EventReader<MouseWheel>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut camera_query: Query<&mut Transform, (With<Camera2d>, Without<RenderLayers>)>,
-    moveable_query: Query<&Transform, Without<Camera2d>>,
+    mut camera_query: Query<&mut Transform, With<MainCamera>>,
+    moveable_query: Query<&Transform, Without<MainCamera>>,
 ) {
     let mut camera_transform = camera_query.single_mut();
     let window = window_query.single();

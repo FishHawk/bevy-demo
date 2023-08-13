@@ -53,28 +53,60 @@ impl Plugin for Light2dPlugin {
     }
 }
 
+#[derive(Component)]
+pub struct MainCamera;
+
 fn setup(
     ref mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     ref mut images: ResMut<Assets<Image>>,
     mut overlay_materials: ResMut<Assets<Light2dOverlayMaterial>>,
 ) {
-    let camera_base = commands
+    commands
         .spawn((Camera2dBundle::default(), RENDER_LAYER_BASE))
         .id();
 
-    let (camera_world, world) = spawn_camera_render_to_image(
-        commands,
-        images,
-        ClearColorConfig::Custom(Color::rgba(0.0, 0.0, 0.0, 0.0)),
-        RENDER_LAYER_WORLD,
-    );
-    let (camera_light, overlay) = spawn_camera_render_to_image(
-        commands,
-        images,
-        ClearColorConfig::Custom(Color::BLACK),
-        RENDER_LAYER_LIGHT,
-    );
+    let world = spawn_camera_render_to_image(images);
+    let camera_world = commands
+        .spawn((
+            Camera2dBundle {
+                camera_2d: Camera2d {
+                    clear_color: ClearColorConfig::Custom(Color::rgba(0.0, 0.0, 0.0, 0.0)),
+                    ..default()
+                },
+                camera: Camera {
+                    order: -1,
+                    target: RenderTarget::Image(world.clone()),
+                    ..default()
+                },
+                ..default()
+            },
+            RENDER_LAYER_WORLD,
+            MainCamera,
+        ))
+        .id();
+
+    let overlay = spawn_camera_render_to_image(images);
+    let camera_light = commands
+        .spawn((
+            Camera2dBundle {
+                camera_2d: Camera2d {
+                    clear_color: ClearColorConfig::Custom(Color::WHITE),
+                    ..default()
+                },
+                camera: Camera {
+                    order: -1,
+                    target: RenderTarget::Image(overlay.clone()),
+                    ..default()
+                },
+                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+                ..default()
+            },
+            RENDER_LAYER_LIGHT,
+        ))
+        .id();
+
+    commands.entity(camera_world).push_children(&[camera_light]);
 
     let mesh = meshes.add(Mesh::from(shape::Quad::default()));
     commands.spawn((
@@ -82,7 +114,6 @@ fn setup(
             mesh: mesh.clone().into(),
             material: overlay_materials.add(Light2dOverlayMaterial { world, overlay }),
             transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 1.0),
                 scale: Vec3::new(960.0, 540.0, 1.0),
                 ..default()
             },
@@ -92,12 +123,7 @@ fn setup(
     ));
 }
 
-fn spawn_camera_render_to_image(
-    commands: &mut Commands,
-    images: &mut ResMut<Assets<Image>>,
-    clear_color: ClearColorConfig,
-    render_layers: RenderLayers,
-) -> (Entity, Handle<Image>) {
+fn spawn_camera_render_to_image(images: &mut ResMut<Assets<Image>>) -> Handle<Image> {
     let size = Extent3d {
         width: 960,
         height: 540,
@@ -119,24 +145,5 @@ fn spawn_camera_render_to_image(
         ..default()
     };
     overlay_image.resize(size);
-    let overlay = images.add(overlay_image);
-
-    let camera = commands
-        .spawn((
-            Camera2dBundle {
-                camera_2d: Camera2d {
-                    clear_color,
-                    ..default()
-                },
-                camera: Camera {
-                    order: -1,
-                    target: RenderTarget::Image(overlay.clone()),
-                    ..default()
-                },
-                ..default()
-            },
-            render_layers,
-        ))
-        .id();
-    (camera, overlay)
+    images.add(overlay_image)
 }

@@ -46,8 +46,8 @@ fn main() {
                 control_selected_moveable,
                 update_moveable,
                 // day_cycle,
-                // update_camera_mode,
-                // update_camera.before(BackgroundSystems),
+                update_camera_mode,
+                update_camera.before(BackgroundSystems),
                 time_change,
             )
                 .chain(),
@@ -211,7 +211,7 @@ fn update_camera_mode(
     mut boundary: ResMut<CameraBoundary>,
     buttons: Res<Input<MouseButton>>,
     windows_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
     if buttons.just_pressed(MouseButton::Left) {
         let (camera, camera_transform) = camera_query.single();
