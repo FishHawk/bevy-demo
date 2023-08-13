@@ -25,7 +25,7 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "Demo".into(),
-                        resolution: (1980., 1080.).into(),
+                        resolution: Vec2::new(960.0, 540.0).into(),
                         ..default()
                     }),
                     ..default()

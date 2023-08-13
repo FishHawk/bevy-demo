@@ -1,4 +1,5 @@
-use bevy::{input::mouse::MouseWheel, prelude::*, window::PrimaryWindow};
+use bevy::{input::mouse::MouseWheel, prelude::*, sprite::Anchor, window::PrimaryWindow};
+use bevy_rapier2d::prelude::*;
 
 use crate::{
     moveable_bundle, solid_bundle, stair_bundle, MoveableBundle, SolidBundle, StairBundle,
@@ -22,9 +23,13 @@ pub struct CameraBoundary {
 
 fn sprite_placeholder(position: Vec2, size: Vec2, z: f32, color: Color) -> SpriteBundle {
     SpriteBundle {
-        sprite: Sprite { color, ..default() },
+        sprite: Sprite {
+            color,
+            anchor: Anchor::BottomLeft,
+            ..default()
+        },
         transform: Transform {
-            translation: (position - size / 2.0).extend(z),
+            translation: position.extend(z),
             scale: size.extend(1.),
             ..default()
         },
@@ -35,7 +40,10 @@ fn sprite_placeholder(position: Vec2, size: Vec2, z: f32, color: Color) -> Sprit
 fn debug_person_bundle(position: Vec2, size: Vec2) -> (SpriteBundle, MoveableBundle) {
     (
         sprite_placeholder(position, size, 9.5, Color::RED),
-        moveable_bundle(80.0),
+        moveable_bundle(
+            Collider::compound(vec![(Vec2::new(0.5, 0.5), 0.0, Collider::cuboid(0.5, 0.5))]),
+            80.0,
+        ),
     )
 }
 
@@ -53,7 +61,7 @@ fn debug_stair_bundle_pair(position1: Vec2, position2: Vec2) -> Vec<(SpriteBundl
     ]
 }
 
-fn debug_dirt_bundle(position: Vec2, size: Vec2) -> (SpriteBundle, SolidBundle) {
+fn debug_solid_bundle(position: Vec2, size: Vec2) -> (SpriteBundle, SolidBundle) {
     (
         sprite_placeholder(position, size, 10.0, Color::BLACK),
         solid_bundle(),
@@ -65,22 +73,24 @@ fn debug_room_bundle(position: Vec2, size: Vec2) -> SpriteBundle {
 }
 
 pub fn spwan_shelter(commands: &mut Commands) {
-    const BORDER: f32 = 40.0;
-    const INTERVAL: f32 = 5.0;
+    const BORDER: f32 = 60.0;
+    const INTERVAL: f32 = 10.0;
 
-    const STAIR_WIDTH: f32 = 60.0;
-    const ROOM_WIDTH: f32 = 80.0;
-    const LAYER_HEIGHT: f32 = 80.0;
+    const STAIR_WIDTH: f32 = 90.0;
+    const ROOM_WIDTH: f32 = 120.0;
+    const OUTSIDE_HEIGHT: f32 = 250.0;
+    const LAYER_HEIGHT: f32 = 120.0;
 
+    let real_resolution = Vec2::new(960.0, 540.0);
     let room_number: UVec2 = UVec2::new(7, 5);
 
     let width = (ROOM_WIDTH * room_number.x as f32 + STAIR_WIDTH) / 2.0;
     let height = (room_number.y as f32) * (LAYER_HEIGHT + INTERVAL) + BORDER;
 
     commands.insert_resource(CameraBoundary {
-        real_resolution: Vec2::new(640.0, 360.0),
-        negative: Vec2::new(-640.0 / 2.0, -height + 0.5 * BORDER),
-        positive: Vec2::new(640.0 / 2.0, 250.0),
+        real_resolution,
+        negative: Vec2::new(-real_resolution.x / 2.0, -height + 0.5 * BORDER),
+        positive: Vec2::new(real_resolution.x / 2.0, OUTSIDE_HEIGHT),
         scale_level: 1,
         mode: CameraMode::Free,
     });
@@ -91,61 +101,54 @@ pub fn spwan_shelter(commands: &mut Commands) {
     ));
 
     // left border
-    commands.spawn(debug_dirt_bundle(
-        Vec2::new(-width, 0.0),
+    commands.spawn(debug_solid_bundle(
+        Vec2::new(-width - BORDER, -height),
         Vec2::new(BORDER, height),
     ));
 
     // right border
-    commands.spawn(debug_dirt_bundle(
-        Vec2::new(width + BORDER, 0.0),
+    commands.spawn(debug_solid_bundle(
+        Vec2::new(width, -height),
         Vec2::new(BORDER, height),
     ));
 
     // bottom border
-    commands.spawn(debug_dirt_bundle(
-        Vec2::new(width, -height + BORDER),
+    commands.spawn(debug_solid_bundle(
+        Vec2::new(-width, -height),
         Vec2::new(2.0 * width, BORDER),
     ));
 
     // layers
     for y in 0..room_number.y {
-        let position_y = -(y as f32) * (LAYER_HEIGHT + INTERVAL);
+        let position_y = -(y as f32 + 1.0) * (LAYER_HEIGHT + INTERVAL);
         // rooms
         for x in 0..room_number.x {
             commands.spawn(debug_room_bundle(
-                Vec2::new(width - (x as f32) * ROOM_WIDTH, position_y - INTERVAL),
+                Vec2::new(-width + (x as f32) * ROOM_WIDTH, position_y),
                 Vec2::new(ROOM_WIDTH, LAYER_HEIGHT),
             ));
         }
 
         // stair
         commands.spawn_batch(debug_stair_bundle_pair(
-            Vec2::new(
-                -width + STAIR_WIDTH,
-                position_y - INTERVAL - LAYER_HEIGHT + 2.0,
-            ),
-            Vec2::new(
-                -width + 20.0,
-                position_y - INTERVAL - LAYER_HEIGHT / 2.0 + 2.0,
-            ),
+            Vec2::new(width - STAIR_WIDTH, position_y),
+            Vec2::new(width - 20.0, position_y + (LAYER_HEIGHT + INTERVAL) / 2.0),
         ));
-
         commands.spawn_batch(debug_stair_bundle_pair(
-            Vec2::new(
-                -width + 20.0,
-                position_y - INTERVAL - LAYER_HEIGHT / 2.0 + 2.0,
-            ),
-            Vec2::new(-width + STAIR_WIDTH, position_y + 2.0),
+            Vec2::new(width - 20.0, position_y + (LAYER_HEIGHT + INTERVAL) / 2.0),
+            Vec2::new(width - STAIR_WIDTH, position_y + (LAYER_HEIGHT + INTERVAL)),
         ));
-        commands.spawn(debug_dirt_bundle(
-            Vec2::new(-width + 10.0, position_y - INTERVAL - LAYER_HEIGHT / 2.0),
+        commands.spawn(debug_solid_bundle(
+            Vec2::new(
+                width - 10.0,
+                position_y + (LAYER_HEIGHT + INTERVAL) / 2.0 - INTERVAL,
+            ),
             Vec2::new(10.0, INTERVAL),
         ));
 
         // ceil
-        commands.spawn(debug_dirt_bundle(
-            Vec2::new(width, position_y),
+        commands.spawn(debug_solid_bundle(
+            Vec2::new(-width, position_y + LAYER_HEIGHT),
             Vec2::new(2.0 * width, INTERVAL),
         ));
     }

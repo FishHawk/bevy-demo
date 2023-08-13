@@ -49,12 +49,12 @@ pub type MoveableBundle = (
     LockedAxes,
     CollisionGroups,
 );
-pub fn moveable_bundle(speed: f32) -> MoveableBundle {
+pub fn moveable_bundle(collider: Collider, speed: f32) -> MoveableBundle {
     (
         Moveable { speed, ..default() },
         GravityScale(1.0),
         RigidBody::Dynamic,
-        Collider::cuboid(0.5, 0.5),
+        collider,
         LockedAxes::ROTATION_LOCKED,
         CollisionGroups::new(GROUP_MOVEABLE, GROUP_SOLID | GROUP_STAIR),
     )
@@ -63,7 +63,7 @@ pub fn moveable_bundle(speed: f32) -> MoveableBundle {
 pub type SolidBundle = (Collider, CollisionGroups);
 pub fn solid_bundle() -> SolidBundle {
     (
-        Collider::cuboid(0.5, 0.5),
+        Collider::compound(vec![(Vec2::new(0.5, 0.5), 0.0, Collider::cuboid(0.5, 0.5))]),
         CollisionGroups::new(GROUP_SOLID, GROUP_MOVEABLE),
     )
 }
@@ -76,7 +76,7 @@ pub fn stair_bundle(stair: Vec2) -> StairBundle {
     (
         Stair(stair),
         Sensor,
-        Collider::cuboid(0.5, 0.5),
+        Collider::compound(vec![(Vec2::new(0.5, 0.5), 0.0, Collider::cuboid(0.5, 0.5))]),
         CollisionGroups::new(GROUP_STAIR, GROUP_MOVEABLE),
     )
 }
