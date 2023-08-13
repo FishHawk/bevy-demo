@@ -1,9 +1,6 @@
 use bevy::{input::mouse::MouseWheel, prelude::*, sprite::Anchor, window::PrimaryWindow};
-use bevy_rapier2d::prelude::*;
 
-use crate::{
-    moveable_bundle, solid_bundle, stair_bundle, MoveableBundle, SolidBundle, StairBundle,
-};
+use crate::{solid_bundle, stair_bundle, SolidBundle, StairBundle};
 
 #[derive(Default)]
 pub enum CameraMode {
@@ -23,13 +20,9 @@ pub struct CameraBoundary {
 
 fn sprite_placeholder(position: Vec2, size: Vec2, z: f32, color: Color) -> SpriteBundle {
     SpriteBundle {
-        sprite: Sprite {
-            color,
-            anchor: Anchor::BottomLeft,
-            ..default()
-        },
+        sprite: Sprite { color, ..default() },
         transform: Transform {
-            translation: position.extend(z),
+            translation: (position + size / 2.0).extend(z),
             scale: size.extend(1.),
             ..default()
         },
@@ -37,14 +30,20 @@ fn sprite_placeholder(position: Vec2, size: Vec2, z: f32, color: Color) -> Sprit
     }
 }
 
-fn debug_person_bundle(position: Vec2, size: Vec2) -> (SpriteBundle, MoveableBundle) {
-    (
-        sprite_placeholder(position, size, 9.5, Color::RED),
-        moveable_bundle(
-            Collider::compound(vec![(Vec2::new(0.5, 0.5), 0.0, Collider::cuboid(0.5, 0.5))]),
-            80.0,
-        ),
-    )
+pub fn sprite_bundle(position: Vec2, size: Vec2, z: f32, texture: Handle<Image>) -> SpriteBundle {
+    SpriteBundle {
+        texture: texture,
+        transform: Transform {
+            translation: (position + size / 2.0).extend(z),
+            scale: size.extend(1.),
+            ..default()
+        },
+        sprite: Sprite {
+            custom_size: Some(Vec2::new(1.0, 1.0)),
+            ..default()
+        },
+        ..default()
+    }
 }
 
 fn debug_stair_bundle_pair(position1: Vec2, position2: Vec2) -> Vec<(SpriteBundle, StairBundle)> {
@@ -68,19 +67,24 @@ fn debug_solid_bundle(position: Vec2, size: Vec2) -> (SpriteBundle, SolidBundle)
     )
 }
 
-fn debug_room_bundle(position: Vec2, size: Vec2) -> SpriteBundle {
-    sprite_placeholder(position, size, 9.0, Color::GRAY)
+const BORDER: f32 = 60.0;
+const INTERVAL: f32 = 10.0;
+
+const STAIR_WIDTH: f32 = 90.0;
+const ROOM_WIDTH: f32 = 120.0;
+const OUTSIDE_HEIGHT: f32 = 250.0;
+const LAYER_HEIGHT: f32 = 120.0;
+
+pub fn shelter_position(room: IVec2, offset: Vec2) -> Vec2 {
+    // temp
+    let width = (ROOM_WIDTH * 7.0 + STAIR_WIDTH) / 2.0;
+    Vec2::new(
+        (room.x as f32) * ROOM_WIDTH - width,
+        -(room.y as f32) * (LAYER_HEIGHT + INTERVAL),
+    ) + offset
 }
 
-pub fn spwan_shelter(commands: &mut Commands) {
-    const BORDER: f32 = 60.0;
-    const INTERVAL: f32 = 10.0;
-
-    const STAIR_WIDTH: f32 = 90.0;
-    const ROOM_WIDTH: f32 = 120.0;
-    const OUTSIDE_HEIGHT: f32 = 250.0;
-    const LAYER_HEIGHT: f32 = 120.0;
-
+pub fn spwan_shelter(commands: &mut Commands, room_texture: Handle<Image>) {
     let real_resolution = Vec2::new(960.0, 540.0);
     let room_number: UVec2 = UVec2::new(7, 5);
 
@@ -94,11 +98,6 @@ pub fn spwan_shelter(commands: &mut Commands) {
         scale_level: 1,
         mode: CameraMode::Free,
     });
-
-    commands.spawn(debug_person_bundle(
-        Vec2::new(0.0, -82.0),
-        Vec2::new(10.0, 5.0),
-    ));
 
     // left border
     commands.spawn(debug_solid_bundle(
@@ -123,10 +122,12 @@ pub fn spwan_shelter(commands: &mut Commands) {
         let position_y = -(y as f32 + 1.0) * (LAYER_HEIGHT + INTERVAL);
         // rooms
         for x in 0..room_number.x {
-            commands.spawn(debug_room_bundle(
-                Vec2::new(-width + (x as f32) * ROOM_WIDTH, position_y),
-                Vec2::new(ROOM_WIDTH, LAYER_HEIGHT),
-            ));
+            // commands.spawn(sprite_bundle(
+            //     Vec2::new(-width + (x as f32) * ROOM_WIDTH, position_y),
+            //     Vec2::new(ROOM_WIDTH, LAYER_HEIGHT),
+            //     9.0,
+            //     room_texture.clone(),
+            // ));
         }
 
         // stair

@@ -2,6 +2,8 @@ use std::f32::consts::PI;
 
 use bevy::{
     prelude::*,
+    render::texture::{CompressedImageFormats, ImageType},
+    sprite::Anchor,
     window::{close_on_esc, PrimaryWindow},
 };
 use bevy_demo::*;
@@ -39,7 +41,6 @@ fn main() {
         .add_systems(
             Update,
             (
-                //
                 close_on_esc,
                 control_selected_moveable,
                 update_moveable,
@@ -99,7 +100,29 @@ fn setup(
     spawn_background("demo/6.png", Vec2::new(0.0, 0.0), 0.6);
 
     // Spawn building
-    spwan_shelter(&mut commands);
+    let wall_image = load_texture("demo/wall.png");
+    spwan_shelter(&mut commands, images.add(wall_image));
+
+    let person_image = load_texture("demo/person.png");
+    let person_size = person_image.texture_descriptor.size;
+    let person_size = Vec2::new(person_size.width as f32, person_size.height as f32);
+    commands.spawn((
+        sprite_bundle(
+            shelter_position(IVec2::new(6, 1), Vec2::ZERO),
+            person_size,
+            100.0,
+            images.add(person_image),
+        ),
+        moveable_bundle(
+            Collider::compound(vec![(
+                Vec2::new(0.0, -0.5 + 0.5 * 4.0 / person_size.y),
+                0.0,
+                Collider::cuboid(0.5, 0.5 * 4.0 / person_size.y),
+            )]),
+            // Collider::cuboid(0.5, 0.5),
+            80.0,
+        ),
+    ));
 
     // Spawn UI
     commands.spawn((
@@ -234,4 +257,22 @@ fn control_selected_moveable(
             };
         }
     }
+}
+
+// hacky
+fn load_texture(texture_path: &str) -> Image {
+    let real_path = "assets/".to_owned() + texture_path;
+    let ext = std::path::Path::new(&real_path)
+        .extension()
+        .unwrap()
+        .to_str()
+        .unwrap();
+    let img_bytes = std::fs::read(&real_path).unwrap();
+    Image::from_buffer(
+        &img_bytes,
+        ImageType::Extension(ext),
+        CompressedImageFormats::all(),
+        true,
+    )
+    .unwrap()
 }

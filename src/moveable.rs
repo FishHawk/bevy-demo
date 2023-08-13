@@ -63,7 +63,7 @@ pub fn moveable_bundle(collider: Collider, speed: f32) -> MoveableBundle {
 pub type SolidBundle = (Collider, CollisionGroups);
 pub fn solid_bundle() -> SolidBundle {
     (
-        Collider::compound(vec![(Vec2::new(0.5, 0.5), 0.0, Collider::cuboid(0.5, 0.5))]),
+        Collider::cuboid(0.5, 0.5),
         CollisionGroups::new(GROUP_SOLID, GROUP_MOVEABLE),
     )
 }
@@ -76,7 +76,7 @@ pub fn stair_bundle(stair: Vec2) -> StairBundle {
     (
         Stair(stair),
         Sensor,
-        Collider::compound(vec![(Vec2::new(0.5, 0.5), 0.0, Collider::cuboid(0.5, 0.5))]),
+        Collider::cuboid(0.5, 0.5),
         CollisionGroups::new(GROUP_STAIR, GROUP_MOVEABLE),
     )
 }
