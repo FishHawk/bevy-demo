@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use bevy::{
     prelude::*,
     render::texture::{CompressedImageFormats, ImageType},
-    sprite::Anchor,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     window::{close_on_esc, PrimaryWindow},
 };
 use bevy_demo::*;
@@ -35,7 +35,8 @@ fn main() {
                 .set(ImagePlugin::default_nearest()),
             RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(30.0),
             RapierDebugRenderPlugin::default(),
-            BackgroundPlugin,
+            // BackgroundPlugin,
+            Light2dPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(
@@ -44,9 +45,9 @@ fn main() {
                 close_on_esc,
                 control_selected_moveable,
                 update_moveable,
-                day_cycle,
-                update_camera_mode,
-                update_camera.before(BackgroundSystems),
+                // day_cycle,
+                // update_camera_mode,
+                // update_camera.before(BackgroundSystems),
                 time_change,
             )
                 .chain(),
@@ -60,44 +61,42 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut background_materials: ResMut<Assets<BackgroundMaterial>>,
+    asset: ResMut<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
     mut images: ResMut<Assets<Image>>,
+    // mut background_materials: ResMut<Assets<BackgroundMaterial>>,
+    mut sprite_light2d_materials: ResMut<Assets<Light2dSpriteMaterial>>,
 ) {
-    // Spawn camera
-    let mut camera = Camera2dBundle::default();
-    camera.transform.translation.y = 0.0;
-    commands.spawn(camera);
-
     // Spawn background
-    let mut spawn_background = |texture_path: &str, speed: Vec2, z: f32| {
-        let background_images = BackgroundMaterialImages::palette(
-            &mut images,
-            BackgroundRepeat::X,
-            texture_path,
-            "demo/lut.png",
-        );
-        commands.spawn(BackgroundBundle {
-            material_bundle: BackgroundMaterial::bundle(
-                &mut background_materials,
-                background_images,
-            ),
-            background: Background {
-                position: Vec2::new(0.0, -324.0 / 2.0),
-                offset: Vec2::new(0.0, 1.5),
-                speed,
-                z,
-                scale: 0.5,
-                ..default()
-            },
-        });
-    };
+    // let mut spawn_background = |texture_path: &str, speed: Vec2, z: f32| {
+    //     let background_images = BackgroundMaterialImages::palette(
+    //         &mut images,
+    //         BackgroundRepeat::X,
+    //         texture_path,
+    //         "demo/lut.png",
+    //     );
+    //     commands.spawn(BackgroundBundle {
+    //         material_bundle: BackgroundMaterial::bundle(
+    //             &mut background_materials,
+    //             background_images,
+    //         ),
+    //         background: Background {
+    //             position: Vec2::new(0.0, -324.0 / 2.0),
+    //             offset: Vec2::new(0.0, 1.5),
+    //             speed,
+    //             z,
+    //             scale: 0.5,
+    //             ..default()
+    //         },
+    //     });
+    // };
 
-    spawn_background("demo/1.png", Vec2::new(0.0, 0.5), 0.1);
-    spawn_background("demo/2.png", Vec2::new(0.0, 0.2), 0.2);
-    spawn_background("demo/3.png", Vec2::new(0.0, 0.1), 0.3);
-    spawn_background("demo/4.png", Vec2::new(0.0, 0.0), 0.4);
-    spawn_background("demo/5.png", Vec2::new(0.0, 0.0), 0.5);
-    spawn_background("demo/6.png", Vec2::new(0.0, 0.0), 0.6);
+    // spawn_background("demo/1.png", Vec2::new(0.0, 0.5), 0.1);
+    // spawn_background("demo/2.png", Vec2::new(0.0, 0.2), 0.2);
+    // spawn_background("demo/3.png", Vec2::new(0.0, 0.1), 0.3);
+    // spawn_background("demo/4.png", Vec2::new(0.0, 0.0), 0.4);
+    // spawn_background("demo/5.png", Vec2::new(0.0, 0.0), 0.5);
+    // spawn_background("demo/6.png", Vec2::new(0.0, 0.0), 0.6);
 
     // Spawn building
     let wall_image = load_texture("demo/wall.png");
@@ -108,7 +107,7 @@ fn setup(
     let person_size = Vec2::new(person_size.width as f32, person_size.height as f32);
     commands.spawn((
         sprite_bundle(
-            shelter_position(IVec2::new(6, 1), Vec2::ZERO),
+            shelter_position(IVec2::new(3, 1), Vec2::ZERO),
             person_size,
             100.0,
             images.add(person_image),
@@ -119,9 +118,27 @@ fn setup(
                 0.0,
                 Collider::cuboid(0.5, 0.5 * 4.0 / person_size.y),
             )]),
-            // Collider::cuboid(0.5, 0.5),
             80.0,
         ),
+    ));
+
+    let mesh = meshes.add(Mesh::from(shape::Quad::default()));
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: mesh.into(),
+            material: sprite_light2d_materials.add(Light2dSpriteMaterial {
+                color: Color::hex("ce61767f").unwrap(),
+                intensity: 0.5,
+                sprite: asset.load("demo/light.png"),
+            }),
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 1.0),
+                scale: Vec3::new(900.0, 900.0, 1.0),
+                ..default()
+            },
+            ..default()
+        },
+        RENDER_LAYER_LIGHT,
     ));
 
     // Spawn UI

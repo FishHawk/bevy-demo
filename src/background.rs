@@ -7,6 +7,7 @@ use bevy::{
             AddressMode, AsBindGroup, FilterMode, SamplerDescriptor, ShaderRef, TextureFormat,
         },
         texture::{CompressedImageFormats, ImageSampler, ImageType},
+        view::RenderLayers,
     },
     sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
     window::PrimaryWindow,
@@ -194,7 +195,7 @@ pub struct BackgroundBundle {
 pub fn update_background_transform(
     mut materials: ResMut<Assets<BackgroundMaterial>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &mut Transform)>,
+    camera_query: Query<(&Camera, &mut Transform), Without<RenderLayers>>,
     mut background_query: Query<
         (&Background, &Handle<BackgroundMaterial>, &mut Transform),
         Without<Camera>,

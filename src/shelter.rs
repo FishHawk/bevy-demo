@@ -1,4 +1,7 @@
-use bevy::{input::mouse::MouseWheel, prelude::*, sprite::Anchor, window::PrimaryWindow};
+use bevy::{
+    input::mouse::MouseWheel, prelude::*, render::view::RenderLayers, sprite::Anchor,
+    window::PrimaryWindow,
+};
 
 use crate::{solid_bundle, stair_bundle, SolidBundle, StairBundle};
 
@@ -122,12 +125,12 @@ pub fn spwan_shelter(commands: &mut Commands, room_texture: Handle<Image>) {
         let position_y = -(y as f32 + 1.0) * (LAYER_HEIGHT + INTERVAL);
         // rooms
         for x in 0..room_number.x {
-            // commands.spawn(sprite_bundle(
-            //     Vec2::new(-width + (x as f32) * ROOM_WIDTH, position_y),
-            //     Vec2::new(ROOM_WIDTH, LAYER_HEIGHT),
-            //     9.0,
-            //     room_texture.clone(),
-            // ));
+            commands.spawn(sprite_bundle(
+                Vec2::new(-width + (x as f32) * ROOM_WIDTH, position_y),
+                Vec2::new(ROOM_WIDTH, LAYER_HEIGHT),
+                9.0,
+                room_texture.clone(),
+            ));
         }
 
         // stair
@@ -161,7 +164,7 @@ pub fn update_camera(
     keyboard_input: Res<Input<KeyCode>>,
     mut wheel_events: EventReader<MouseWheel>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut camera_query: Query<&mut Transform, With<Camera2d>>,
+    mut camera_query: Query<&mut Transform, (With<Camera2d>, Without<RenderLayers>)>,
     moveable_query: Query<&Transform, Without<Camera2d>>,
 ) {
     let mut camera_transform = camera_query.single_mut();
