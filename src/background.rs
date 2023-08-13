@@ -14,6 +14,8 @@ use bevy::{
 };
 use serde::Deserialize;
 
+use crate::MainCamera;
+
 pub const BACKGROUND_MATERIAL_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8841543261533782908);
 
@@ -195,10 +197,10 @@ pub struct BackgroundBundle {
 pub fn update_background_transform(
     mut materials: ResMut<Assets<BackgroundMaterial>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &mut Transform), Without<RenderLayers>>,
+    camera_query: Query<(&Camera, &mut Transform), With<MainCamera>>,
     mut background_query: Query<
         (&Background, &Handle<BackgroundMaterial>, &mut Transform),
-        Without<Camera>,
+        Without<MainCamera>,
     >,
 ) {
     let primary_window = window_query.single();
