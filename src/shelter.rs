@@ -1,25 +1,6 @@
-use bevy::{
-    input::mouse::MouseWheel, prelude::*,
-    window::PrimaryWindow,
-};
+use bevy::prelude::*;
 
-use crate::{solid_bundle, stair_bundle, MainCamera, SolidBundle, StairBundle};
-
-#[derive(Default)]
-pub enum CameraMode {
-    #[default]
-    Free,
-    Follow(Entity),
-}
-
-#[derive(Resource, Default)]
-pub struct CameraBoundary {
-    pub real_resolution: Vec2,
-    pub negative: Vec2,
-    pub positive: Vec2,
-    pub scale_level: i32,
-    pub mode: CameraMode,
-}
+use crate::{solid_bundle, stair_bundle, SolidBundle, StairBundle, CameraBoundary, CameraMode};
 
 fn sprite_placeholder(position: Vec2, size: Vec2, z: f32, color: Color) -> SpriteBundle {
     SpriteBundle {
@@ -155,74 +136,5 @@ pub fn spwan_shelter(commands: &mut Commands, room_texture: Handle<Image>) {
             Vec2::new(-width, position_y + LAYER_HEIGHT),
             Vec2::new(2.0 * width, INTERVAL),
         ));
-    }
-}
-
-pub fn update_camera(
-    time: Res<Time>,
-    mut boundary: ResMut<CameraBoundary>,
-    keyboard_input: Res<Input<KeyCode>>,
-    mut wheel_events: EventReader<MouseWheel>,
-    window_query: Query<&Window, With<PrimaryWindow>>,
-    mut camera_query: Query<&mut Transform, With<MainCamera>>,
-    moveable_query: Query<&Transform, Without<MainCamera>>,
-) {
-    let mut camera_transform = camera_query.single_mut();
-    let window = window_query.single();
-
-    {
-        for ev in wheel_events.iter() {
-            if ev.y > 0.0 {
-                boundary.scale_level += 1;
-            } else {
-                boundary.scale_level -= 1;
-            }
-        }
-        boundary.scale_level = boundary.scale_level.clamp(1, 3);
-
-        let scale = boundary.real_resolution.x / window.width();
-        let scale = scale / boundary.scale_level as f32;
-        camera_transform.scale.x = scale;
-        camera_transform.scale.y = scale;
-    }
-
-    {
-        let camera_center = match boundary.mode {
-            CameraMode::Free => {
-                let mut x_direction = 0.0;
-                let mut y_direction = 0.0;
-                if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::A) {
-                    x_direction -= 1.;
-                }
-                if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::D) {
-                    x_direction += 1.;
-                }
-                if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
-                    y_direction += 1.;
-                }
-                if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
-                    y_direction -= 1.;
-                }
-
-                const CAMERA_SPEED: f32 = 300.0;
-                camera_transform.translation.truncate()
-                    + Vec2::new(x_direction, y_direction) * CAMERA_SPEED * time.delta_seconds()
-            }
-            CameraMode::Follow(entity) => match moveable_query.get(entity) {
-                Ok(moveable_transform) => moveable_transform.translation.truncate(),
-                Err(_) => camera_transform.translation.truncate(),
-            },
-        };
-
-        let camera_size =
-            Vec2::new(window.width(), window.height()) * camera_transform.scale.truncate();
-
-        let negative = camera_center - camera_size / 2.0;
-        let positive = camera_center + camera_size / 2.0;
-        let camera_center = camera_center
-            + (boundary.negative - negative).max(Vec2::ZERO)
-            + (boundary.positive - positive).min(Vec2::ZERO);
-        camera_transform.translation.x = camera_center.x;
-        camera_transform.translation.y = camera_center.y;
     }
 }
