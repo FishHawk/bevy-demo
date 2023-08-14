@@ -18,10 +18,12 @@ use bevy::{
     window::PrimaryWindow,
 };
 
+pub mod freeform;
 pub mod overlay;
 pub mod point;
 pub mod sprite;
 
+pub use freeform::*;
 pub use overlay::*;
 pub use point::*;
 pub use sprite::*;
@@ -42,6 +44,9 @@ const LIGHT2D_CIRCLE_LOOKUP_IMAGE_HANDLE: HandleUntyped =
 const LIGHT2D_OVERLAY_MATERIAL_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3333834159522335299);
 
+const LIGHT2D_FREEFORM_MATERIAL_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4344113866858121641);
+
 const LIGHT2D_SPRITE_MATERIAL_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 14482162647506175261);
 
@@ -56,6 +61,13 @@ impl Plugin for Light2dPlugin {
             app,
             LIGHT2D_OVERLAY_MATERIAL_SHADER_HANDLE,
             "overlay.wgsl",
+            Shader::from_wgsl
+        );
+
+        load_internal_asset!(
+            app,
+            LIGHT2D_FREEFORM_MATERIAL_SHADER_HANDLE,
+            "freeform.wgsl",
             Shader::from_wgsl
         );
 
@@ -76,6 +88,7 @@ impl Plugin for Light2dPlugin {
         app.add_plugins(Material2dPlugin::<Light2dOverlayMaterial>::default())
             .add_plugins(Material2dPlugin::<Light2dSpriteMaterial>::default())
             .add_plugins(Material2dPlugin::<Light2dPointMaterial>::default())
+            .add_plugins(Material2dPlugin::<Light2dFreeformMaterial>::default())
             .add_systems(Startup, setup)
             .add_systems(Update, resize_render_targets);
     }

@@ -1,5 +1,4 @@
 #import bevy_sprite::mesh2d_vertex_output  MeshVertexOutput
-#import bevy_sprite::mesh2d_view_bindings  view
 
 @group(1) @binding(0)
 var main: texture_2d<f32>;

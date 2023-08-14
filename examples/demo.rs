@@ -64,8 +64,10 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset: ResMut<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
     ref mut images: ResMut<Assets<Image>>,
     mut background_materials: ResMut<Assets<BackgroundMaterial>>,
+    mut light2d_freeform_materials: ResMut<Assets<Light2dFreeformMaterial>>,
     mut light2d_sprite_materials: ResMut<Assets<Light2dSpriteMaterial>>,
     mut light2d_point_materials: ResMut<Assets<Light2dPointMaterial>>,
 ) {
@@ -124,16 +126,44 @@ fn setup(
         ),
     ));
 
+    // Spawn lights
+    let mesh = freeform_polygon_mesh(
+        vec![
+            Vec2::new(0.0, 1.5),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, 0.0),
+        ],
+        2.0,
+    );
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(mesh).into(),
+            material: light2d_freeform_materials.add(Light2dFreeformMaterial {
+                falloff: 0.1,
+                ..default()
+            }),
+            transform: Transform {
+                translation: Vec3::new(-200.0, 0.0, 1.0),
+                scale: Vec3::new(40.0, 40.0, 0.0),
+                ..default()
+            },
+            ..default()
+        },
+        RENDER_LAYER_LIGHT,
+    ));
+
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: LIGHT2D_POINT_DEFAULT_MESH_HANDLE.typed().into(),
             material: light2d_sprite_materials.add(Light2dSpriteMaterial {
-                color: Color::RED,
+                color: Color::WHITE,
                 sprite: asset.load("demo/light.png"),
-                intensity: 0.5,
+                intensity: 1.0,
+                ..default()
             }),
             transform: Transform {
-                translation: Vec3::new(0.0, -50.0, 1.0),
+                translation: Vec3::new(0.0, 0.0, 1.0),
                 scale: Vec3::new(326.0, 326.0, 1.0),
                 ..default()
             },
@@ -147,21 +177,7 @@ fn setup(
             mesh: LIGHT2D_POINT_DEFAULT_MESH_HANDLE.typed().into(),
             material: light2d_point_materials.add(Light2dPointMaterial::default()),
             transform: Transform {
-                translation: Vec3::new(100.0, 0.0, 1.0),
-                scale: Vec3::new(100.0, 100.0, 0.0),
-                ..default()
-            },
-            ..default()
-        },
-        RENDER_LAYER_LIGHT,
-    ));
-
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: LIGHT2D_POINT_DEFAULT_MESH_HANDLE.typed().into(),
-            material: light2d_point_materials.add(Light2dPointMaterial::default()),
-            transform: Transform {
-                translation: Vec3::new(-100.0, 0.0, 1.0),
+                translation: Vec3::new(200.0, 0.0, 1.0),
                 scale: Vec3::new(100.0, 100.0, 0.0),
                 ..default()
             },

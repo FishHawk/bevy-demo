@@ -10,7 +10,10 @@ use bevy::{
     sprite::{Material2d, Material2dKey},
 };
 
-use super::{create_light2d_fragment_target, LIGHT2D_SPRITE_MATERIAL_SHADER_HANDLE};
+use super::{
+    create_light2d_fragment_target, LIGHT2D_FALLOFF_LOOKUP_IMAGE_HANDLE,
+    LIGHT2D_SPRITE_MATERIAL_SHADER_HANDLE,
+};
 
 #[derive(AsBindGroup, Reflect, Debug, Clone, TypeUuid)]
 #[reflect(Debug)]
@@ -20,9 +23,26 @@ pub struct Light2dSpriteMaterial {
     pub color: Color,
     #[uniform(0)]
     pub intensity: f32,
+    #[uniform(0)]
+    pub falloff: f32,
     #[texture(1)]
     #[sampler(2)]
     pub sprite: Handle<Image>,
+    #[texture(3)]
+    #[sampler(4)]
+    pub falloff_lookup: Handle<Image>,
+}
+
+impl Default for Light2dSpriteMaterial {
+    fn default() -> Self {
+        Self {
+            color: Color::WHITE,
+            intensity: 1.0,
+            falloff: 0.5,
+            sprite: Default::default(),
+            falloff_lookup: LIGHT2D_FALLOFF_LOOKUP_IMAGE_HANDLE.clone().typed(),
+        }
+    }
 }
 
 impl Material2d for Light2dSpriteMaterial {

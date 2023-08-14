@@ -1,5 +1,4 @@
 #import bevy_sprite::mesh2d_vertex_output  MeshVertexOutput
-#import bevy_sprite::mesh2d_view_bindings  view
 
 struct Light {
     color: vec4<f32>,
@@ -41,7 +40,6 @@ fn fragment(
         falloff_lookup_sampler,
         vec2<f32>(attenuation, light.falloff)
     ).r;
-
-    var output_color = light.color * light.intensity * attenuation;
+    var output_color = light.intensity * attenuation * light.color;
     return output_color;
 }
