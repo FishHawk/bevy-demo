@@ -10,7 +10,6 @@ use bevy::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
         texture::{BevyDefault, ImageSampler},
-        view::RenderLayers,
     },
     sprite::Material2dPlugin,
     window::PrimaryWindow,

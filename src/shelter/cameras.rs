@@ -5,7 +5,7 @@ use bevy::{
     sprite::MaterialMesh2dBundle,
 };
 
-use crate::{spawn_render_target_image, Light2dOverlayMaterial};
+use crate::{spawn_render_target_image, BackgroundCamera, Light2dOverlayMaterial};
 
 pub const RENDER_LAYER_MAIN1: RenderLayers = RenderLayers::layer(0);
 pub const RENDER_LAYER_MAIN2: RenderLayers = RenderLayers::layer(1);
@@ -52,6 +52,7 @@ pub fn setup_cameras(
             },
             RENDER_LAYER_MAIN1,
             MainCamera,
+            BackgroundCamera,
         ))
         .id();
 

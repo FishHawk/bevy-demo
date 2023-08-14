@@ -13,12 +13,13 @@ use bevy::{
 };
 use serde::Deserialize;
 
-use crate::MainCamera;
+#[derive(Component)]
+pub struct BackgroundCamera;
 
-pub const BACKGROUND_MATERIAL_SHADER_HANDLE: HandleUntyped =
+const BACKGROUND_MATERIAL_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8841543261533782908);
 
-pub const BACKGROUND_MATERIAL_MESH_HANDLE: HandleUntyped =
+const BACKGROUND_MATERIAL_MESH_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Mesh::TYPE_UUID, 9282188024679778823);
 
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
@@ -136,7 +137,7 @@ impl Material2d for BackgroundMaterial {
 
 impl BackgroundMaterial {
     pub fn bundle(
-        materials: &mut ResMut<Assets<Self>>,
+        materials: &mut Assets<Self>,
         images: BackgroundMaterialImages,
     ) -> MaterialMesh2dBundle<Self> {
         MaterialMesh2dBundle {
@@ -196,10 +197,10 @@ pub struct BackgroundBundle {
 pub fn update_background_transform(
     mut materials: ResMut<Assets<BackgroundMaterial>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(&Camera, &mut Transform), With<MainCamera>>,
+    camera_query: Query<(&Camera, &mut Transform), With<BackgroundCamera>>,
     mut background_query: Query<
         (&Background, &Handle<BackgroundMaterial>, &mut Transform),
-        Without<MainCamera>,
+        Without<BackgroundCamera>,
     >,
 ) {
     let primary_window = window_query.single();
