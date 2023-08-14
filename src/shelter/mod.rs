@@ -1,6 +1,14 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
-use crate::{solid_bundle, stair_bundle, SolidBundle, StairBundle, CameraBoundary, CameraMode};
+use crate::{
+    freeform_polygon_mesh, solid_bundle, stair_bundle, Background, BackgroundBundle,
+    BackgroundMaterial, BackgroundMaterialImages, BackgroundRepeat, CameraBoundary, CameraMode,
+    Light2dFreeformMaterial, SolidBundle, StairBundle, RENDER_LAYER_LIGHT,
+};
+
+pub mod day_cycle;
+
+pub use day_cycle::*;
 
 fn sprite_placeholder(position: Vec2, size: Vec2, z: f32, color: Color) -> SpriteBundle {
     SpriteBundle {
@@ -68,7 +76,46 @@ pub fn shelter_position(room: IVec2, offset: Vec2) -> Vec2 {
     ) + offset
 }
 
-pub fn spwan_shelter(commands: &mut Commands, room_texture: Handle<Image>) {
+pub fn spwan_shelter(
+    commands: &mut Commands,
+    asset: &mut AssetServer,
+    meshes: &mut Assets<Mesh>,
+    images: &mut Assets<Image>,
+    mut background_materials: &mut ResMut<Assets<BackgroundMaterial>>,
+    light2d_freeform_materials: &mut Assets<Light2dFreeformMaterial>,
+) {
+    // Spawn background
+    let mut spawn_background = |texture_path: &str, speed: Vec2, z: f32| {
+        let background_images = BackgroundMaterialImages::palette(
+            images,
+            BackgroundRepeat::X,
+            texture_path,
+            "demo/lut.png",
+        );
+        commands.spawn(BackgroundBundle {
+            material_bundle: BackgroundMaterial::bundle(
+                &mut background_materials,
+                background_images,
+            ),
+            background: Background {
+                position: Vec2::new(0.0, -324.0 / 2.0),
+                offset: Vec2::new(0.0, 1.5),
+                speed,
+                z,
+                scale: 0.5,
+                ..default()
+            },
+        });
+    };
+
+    spawn_background("demo/1.png", Vec2::new(0.0, 0.5), 0.1);
+    spawn_background("demo/2.png", Vec2::new(0.0, 0.2), 0.2);
+    spawn_background("demo/3.png", Vec2::new(0.0, 0.1), 0.3);
+    spawn_background("demo/4.png", Vec2::new(0.0, 0.0), 0.4);
+    spawn_background("demo/5.png", Vec2::new(0.0, 0.0), 0.5);
+    spawn_background("demo/6.png", Vec2::new(0.0, 0.0), 0.6);
+
+    // Spawn shelter
     let real_resolution = Vec2::new(960.0, 540.0);
     let room_number: UVec2 = UVec2::new(7, 5);
 
@@ -82,6 +129,52 @@ pub fn spwan_shelter(commands: &mut Commands, room_texture: Handle<Image>) {
         scale_level: 1,
         mode: CameraMode::Free,
     });
+
+    let mesh = meshes.add(freeform_polygon_mesh(
+        vec![
+            Vec2::new(0.0, 1.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(0.0, 0.0),
+        ],
+        0.0,
+    ));
+
+    // background light
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: mesh.clone().into(),
+            material: light2d_freeform_materials.add(Light2dFreeformMaterial { ..default() }),
+            transform: Transform {
+                translation: Vec3::new(-width - 50.0, 0.0, 1.0),
+                scale: Vec3::new(width * 2.0 + 100.0, 500.0, 0.0),
+                ..default()
+            },
+            ..default()
+        },
+        RENDER_LAYER_LIGHT,
+        LightIntensity {
+            max: 1.0,
+            min: 0.4,
+            addition: 0.0,
+        },
+    ));
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: mesh.clone().into(),
+            material: light2d_freeform_materials.add(Light2dFreeformMaterial {
+                color: Color::rgb(0.4, 0.4, 0.4),
+                ..default()
+            }),
+            transform: Transform {
+                translation: Vec3::new(-width - 50.0, -height - 500.0, 1.0),
+                scale: Vec3::new(width * 2.0 + 100.0, height + 500.0, 0.0),
+                ..default()
+            },
+            ..default()
+        },
+        RENDER_LAYER_LIGHT,
+    ));
 
     // left border
     commands.spawn(debug_solid_bundle(
@@ -102,6 +195,7 @@ pub fn spwan_shelter(commands: &mut Commands, room_texture: Handle<Image>) {
     ));
 
     // layers
+    let wall_image = asset.load("demo/wall.png");
     for y in 0..room_number.y {
         let position_y = -(y as f32 + 1.0) * (LAYER_HEIGHT + INTERVAL);
         // rooms
@@ -110,7 +204,7 @@ pub fn spwan_shelter(commands: &mut Commands, room_texture: Handle<Image>) {
                 Vec2::new(-width + (x as f32) * ROOM_WIDTH, position_y),
                 Vec2::new(ROOM_WIDTH, LAYER_HEIGHT),
                 9.0,
-                room_texture.clone(),
+                wall_image.clone(),
             ));
         }
 

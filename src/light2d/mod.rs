@@ -32,7 +32,7 @@ pub const RENDER_LAYER_WORLD: RenderLayers = RenderLayers::layer(0);
 pub const RENDER_LAYER_LIGHT: RenderLayers = RenderLayers::layer(1);
 pub const RENDER_LAYER_BASE: RenderLayers = RenderLayers::layer(2);
 
-pub const LIGHT2D_POINT_DEFAULT_MESH_HANDLE: HandleUntyped =
+pub const LIGHT2D_DEFAULT_MESH_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Mesh::TYPE_UUID, 268956803042264025);
 
 const LIGHT2D_FALLOFF_LOOKUP_IMAGE_HANDLE: HandleUntyped =
@@ -108,7 +108,7 @@ fn setup(
 ) {
     // Spawn default mesh
     meshes.set_untracked(
-        LIGHT2D_POINT_DEFAULT_MESH_HANDLE,
+        LIGHT2D_DEFAULT_MESH_HANDLE,
         Mesh::from(shape::Quad::default()),
     );
 

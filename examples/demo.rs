@@ -1,25 +1,11 @@
-use std::f32::consts::PI;
-
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
     render::texture::{CompressedImageFormats, ImageType},
-    sprite::MaterialMesh2dBundle,
     window::{close_on_esc, PrimaryWindow},
 };
 use bevy_demo::*;
 use bevy_rapier2d::prelude::*;
-
-#[derive(Resource, Default)]
-struct GameDateTime {
-    pub paused: bool,
-    pub days: i32,
-    pub time: f32,
-    pub time_ratio: f32,
-}
-
-#[derive(Component)]
-struct GameDateTimeText;
 
 fn main() {
     App::new()
@@ -43,6 +29,17 @@ fn main() {
         .add_systems(
             Update,
             (
+                day_cycle,
+                (
+                    update_background_color.before(BackgroundSystems),
+                    update_ambient_light,
+                ),
+            )
+                .chain(),
+        )
+        .add_systems(
+            Update,
+            (
                 debug_toggle_global_light,
                 close_on_esc,
                 control_selected_moveable,
@@ -50,7 +47,7 @@ fn main() {
                 day_cycle,
                 update_camera_mode,
                 update_camera.before(BackgroundSystems),
-                time_change,
+                debug_control_day_cycle,
             )
                 .chain(),
         )
@@ -63,48 +60,21 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    asset: ResMut<AssetServer>,
+    mut asset: ResMut<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
-    ref mut images: ResMut<Assets<Image>>,
+    mut images: ResMut<Assets<Image>>,
     mut background_materials: ResMut<Assets<BackgroundMaterial>>,
     mut light2d_freeform_materials: ResMut<Assets<Light2dFreeformMaterial>>,
-    mut light2d_sprite_materials: ResMut<Assets<Light2dSpriteMaterial>>,
-    mut light2d_point_materials: ResMut<Assets<Light2dPointMaterial>>,
 ) {
-    // Spawn background
-    let mut spawn_background = |texture_path: &str, speed: Vec2, z: f32| {
-        let background_images = BackgroundMaterialImages::palette(
-            images,
-            BackgroundRepeat::X,
-            texture_path,
-            "demo/lut.png",
-        );
-        commands.spawn(BackgroundBundle {
-            material_bundle: BackgroundMaterial::bundle(
-                &mut background_materials,
-                background_images,
-            ),
-            background: Background {
-                position: Vec2::new(0.0, -324.0 / 2.0),
-                offset: Vec2::new(0.0, 1.5),
-                speed,
-                z,
-                scale: 0.5,
-                ..default()
-            },
-        });
-    };
-
-    spawn_background("demo/1.png", Vec2::new(0.0, 0.5), 0.1);
-    spawn_background("demo/2.png", Vec2::new(0.0, 0.2), 0.2);
-    spawn_background("demo/3.png", Vec2::new(0.0, 0.1), 0.3);
-    spawn_background("demo/4.png", Vec2::new(0.0, 0.0), 0.4);
-    spawn_background("demo/5.png", Vec2::new(0.0, 0.0), 0.5);
-    spawn_background("demo/6.png", Vec2::new(0.0, 0.0), 0.6);
-
     // Spawn building
-    let wall_image = load_texture("demo/wall.png");
-    spwan_shelter(&mut commands, images.add(wall_image));
+    spwan_shelter(
+        &mut commands,
+        &mut asset,
+        &mut meshes,
+        &mut images,
+        &mut background_materials,
+        &mut light2d_freeform_materials,
+    );
 
     let person_image = load_texture("demo/person.png");
     let person_size = person_image.texture_descriptor.size;
@@ -126,67 +96,6 @@ fn setup(
         ),
     ));
 
-    // Spawn lights
-    let mesh = freeform_polygon_mesh(
-        vec![
-            Vec2::new(0.0, 1.5),
-            Vec2::new(1.0, 1.0),
-            Vec2::new(1.0, 0.0),
-            Vec2::new(0.0, 0.0),
-        ],
-        2.0,
-    );
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(mesh).into(),
-            material: light2d_freeform_materials.add(Light2dFreeformMaterial {
-                falloff: 0.1,
-                ..default()
-            }),
-            transform: Transform {
-                translation: Vec3::new(-200.0, 0.0, 1.0),
-                scale: Vec3::new(40.0, 40.0, 0.0),
-                ..default()
-            },
-            ..default()
-        },
-        RENDER_LAYER_LIGHT,
-    ));
-
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: LIGHT2D_POINT_DEFAULT_MESH_HANDLE.typed().into(),
-            material: light2d_sprite_materials.add(Light2dSpriteMaterial {
-                color: Color::WHITE,
-                sprite: asset.load("demo/light.png"),
-                intensity: 1.0,
-                ..default()
-            }),
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 1.0),
-                scale: Vec3::new(326.0, 326.0, 1.0),
-                ..default()
-            },
-            ..default()
-        },
-        RENDER_LAYER_LIGHT,
-    ));
-
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: LIGHT2D_POINT_DEFAULT_MESH_HANDLE.typed().into(),
-            material: light2d_point_materials.add(Light2dPointMaterial::default()),
-            transform: Transform {
-                translation: Vec3::new(200.0, 0.0, 1.0),
-                scale: Vec3::new(100.0, 100.0, 0.0),
-                ..default()
-            },
-            ..default()
-        },
-        RENDER_LAYER_LIGHT,
-    ));
-
-    // Spawn UI
     commands.spawn((
         TextBundle::from_section(
             "",
@@ -205,50 +114,6 @@ fn setup(
         }),
         GameDateTimeText,
     ));
-}
-
-fn day_cycle(
-    time: Res<Time>,
-    mut game_date_time: ResMut<GameDateTime>,
-    mut game_date_time_text_query: Query<&mut Text, With<GameDateTimeText>>,
-    //
-    mut materials: ResMut<Assets<BackgroundMaterial>>,
-    mut background_query: Query<&Handle<BackgroundMaterial>>,
-) {
-    if !game_date_time.paused {
-        game_date_time.time += game_date_time.time_ratio * time.delta_seconds();
-        if game_date_time.time >= 1.0 {
-            game_date_time.days += 1;
-            game_date_time.time = game_date_time.time.fract();
-        }
-    }
-
-    for mut text in &mut game_date_time_text_query {
-        text.sections[0].value = format!(
-            "Day {0} Hour {1:02} {2}",
-            game_date_time.days,
-            game_date_time.time * 24.0,
-            if game_date_time.paused { "paused" } else { "" }
-        );
-    }
-
-    let ratio = (game_date_time.time * 2.0 * PI).cos() / 2.0 + 0.5;
-    for material_handle in &mut background_query {
-        let material = materials.get_mut(material_handle).unwrap();
-        material.palette_ratio.x = ratio;
-    }
-}
-
-fn time_change(mut game_date_time: ResMut<GameDateTime>, keyboard_input: Res<Input<KeyCode>>) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
-        game_date_time.paused = !game_date_time.paused;
-    }
-    if keyboard_input.just_pressed(KeyCode::Q) {
-        game_date_time.time = ((game_date_time.time * 24.0 + 23.0).floor() / 24.0).fract();
-    }
-    if keyboard_input.just_pressed(KeyCode::E) {
-        game_date_time.time = ((game_date_time.time * 24.0 + 1.0).floor() / 24.0).fract();
-    }
 }
 
 fn update_camera_mode(
