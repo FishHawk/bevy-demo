@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
     render::texture::{CompressedImageFormats, ImageType},
     sprite::MaterialMesh2dBundle,
@@ -42,6 +43,7 @@ fn main() {
         .add_systems(
             Update,
             (
+                debug_toggle_global_light,
                 close_on_esc,
                 control_selected_moveable,
                 update_moveable,
@@ -63,14 +65,15 @@ fn setup(
     mut commands: Commands,
     asset: ResMut<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
+    ref mut images: ResMut<Assets<Image>>,
     mut background_materials: ResMut<Assets<BackgroundMaterial>>,
-    mut sprite_light2d_materials: ResMut<Assets<Light2dSpriteMaterial>>,
+    mut light2d_sprite_materials: ResMut<Assets<Light2dSpriteMaterial>>,
+    mut light2d_point_materials: ResMut<Assets<Light2dPointMaterial>>,
 ) {
     // Spawn background
     let mut spawn_background = |texture_path: &str, speed: Vec2, z: f32| {
         let background_images = BackgroundMaterialImages::palette(
-            &mut images,
+            images,
             BackgroundRepeat::X,
             texture_path,
             "demo/lut.png",
@@ -125,15 +128,43 @@ fn setup(
     let mesh = meshes.add(Mesh::from(shape::Quad::default()));
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: mesh.into(),
-            material: sprite_light2d_materials.add(Light2dSpriteMaterial {
+            mesh: mesh.clone().into(),
+            material: light2d_sprite_materials.add(Light2dSpriteMaterial {
                 color: Color::hex("ce61767f").unwrap(),
                 intensity: 0.5,
                 sprite: asset.load("demo/light.png"),
             }),
             transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 1.0),
-                scale: Vec3::new(900.0, 900.0, 1.0),
+                translation: Vec3::new(0.0, -50.0, 1.0),
+                scale: Vec3::new(326.0, 326.0, 1.0),
+                ..default()
+            },
+            ..default()
+        },
+        RENDER_LAYER_LIGHT,
+    ));
+
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: mesh.clone().into(),
+            material: light2d_point_materials.add(Light2dPointMaterial::default()),
+            transform: Transform {
+                translation: Vec3::new(100.0, 0.0, 1.0),
+                scale: Vec3::new(100.0, 100.0, 0.0),
+                ..default()
+            },
+            ..default()
+        },
+        RENDER_LAYER_LIGHT,
+    ));
+
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: mesh.clone().into(),
+            material: light2d_point_materials.add(Light2dPointMaterial::default()),
+            transform: Transform {
+                translation: Vec3::new(-100.0, 0.0, 1.0),
+                scale: Vec3::new(100.0, 100.0, 0.0),
                 ..default()
             },
             ..default()
@@ -231,6 +262,22 @@ fn update_camera_mode(
                     false
                 },
             );
+        }
+    }
+}
+
+fn debug_toggle_global_light(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut camera_query: Query<&mut Camera2d, With<LightCamera>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::L) {
+        let mut camera2d = camera_query.single_mut();
+        if let ClearColorConfig::Custom(color) = camera2d.clear_color {
+            if color == Color::WHITE {
+                camera2d.clear_color = ClearColorConfig::Custom(Color::rgb(0.2, 0.2, 0.2));
+            } else {
+                camera2d.clear_color = ClearColorConfig::Custom(Color::WHITE);
+            }
         }
     }
 }

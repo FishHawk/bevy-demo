@@ -4,15 +4,13 @@ use bevy::{
     render::{
         mesh::MeshVertexBufferLayout,
         render_resource::{
-            AsBindGroup, BlendComponent, BlendFactor, BlendState, ColorTargetState, ColorWrites,
-            RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError, TextureFormat, BlendOperation,
+            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
         },
-        texture::BevyDefault,
     },
     sprite::{Material2d, Material2dKey},
 };
 
-use super::LIGHT2D_SPRITE_MATERIAL_SHADER_HANDLE;
+use super::{create_light2d_fragment_target, LIGHT2D_SPRITE_MATERIAL_SHADER_HANDLE};
 
 // Material
 #[derive(AsBindGroup, Reflect, Debug, Clone, TypeUuid)]
@@ -39,18 +37,7 @@ impl Material2d for Light2dSpriteMaterial {
         _: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         if let Some(ref mut fragment) = descriptor.fragment {
-            fragment.targets = vec![Some(ColorTargetState {
-                format: TextureFormat::bevy_default(),
-                blend: Some(BlendState {
-                    color: BlendComponent {
-                        src_factor: BlendFactor::One,
-                        dst_factor: BlendFactor::One,
-                        operation: BlendOperation::Add,
-                    },
-                    alpha: BlendComponent::REPLACE,
-                }),
-                write_mask: ColorWrites::ALL,
-            })]
+            fragment.targets = vec![Option::Some(create_light2d_fragment_target())];
         }
         Ok(())
     }

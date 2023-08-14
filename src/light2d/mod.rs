@@ -1,3 +1,5 @@
+use std::f32::consts::E;
+
 use bevy::{
     asset::load_internal_asset,
     core_pipeline::clear_color::ClearColorConfig,
@@ -6,8 +8,10 @@ use bevy::{
     render::{
         camera::RenderTarget,
         render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+            Extent3d, FilterMode, SamplerDescriptor, TextureDescriptor, TextureDimension,
+            TextureFormat, TextureUsages, ColorTargetState, BlendState, BlendComponent, BlendFactor, BlendOperation, ColorWrites,
         },
+        texture::{ImageSampler, BevyDefault},
         view::RenderLayers,
     },
     sprite::{Material2dPlugin, MaterialMesh2dBundle},
@@ -15,20 +19,31 @@ use bevy::{
 };
 
 pub mod overlay;
+pub mod point;
 pub mod sprite;
 
 pub use overlay::*;
+pub use point::*;
 pub use sprite::*;
 
 pub const RENDER_LAYER_WORLD: RenderLayers = RenderLayers::layer(0);
 pub const RENDER_LAYER_LIGHT: RenderLayers = RenderLayers::layer(1);
 pub const RENDER_LAYER_BASE: RenderLayers = RenderLayers::layer(2);
 
+const LIGHT2D_FALLOFF_LOOKUP_IMAGE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Image::TYPE_UUID, 17108410941913908125);
+
+const LIGHT2D_CIRCLE_LOOKUP_IMAGE_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Image::TYPE_UUID, 7954851330280344899);
+
 const LIGHT2D_OVERLAY_MATERIAL_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8841543261533787000);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 3333834159522335299);
 
 const LIGHT2D_SPRITE_MATERIAL_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8841543261533783000);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 14482162647506175261);
+
+const LIGHT2D_POINT_MATERIAL_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2858849434766952494);
 
 pub struct Light2dPlugin;
 
@@ -48,8 +63,16 @@ impl Plugin for Light2dPlugin {
             Shader::from_wgsl
         );
 
+        load_internal_asset!(
+            app,
+            LIGHT2D_POINT_MATERIAL_SHADER_HANDLE,
+            "point.wgsl",
+            Shader::from_wgsl
+        );
+
         app.add_plugins(Material2dPlugin::<Light2dOverlayMaterial>::default())
             .add_plugins(Material2dPlugin::<Light2dSpriteMaterial>::default())
+            .add_plugins(Material2dPlugin::<Light2dPointMaterial>::default())
             .add_systems(Startup, setup)
             .add_systems(Update, resize_render_targets);
     }
@@ -67,6 +90,11 @@ fn setup(
     ref mut images: ResMut<Assets<Image>>,
     mut overlay_materials: ResMut<Assets<Light2dOverlayMaterial>>,
 ) {
+    // Spawn lookup images
+    spawn_falloff_lookup_image(images);
+    spawn_circle_lookup_image(images);
+
+    // Spawn cameras
     commands.spawn((Camera2dBundle::default(), RENDER_LAYER_BASE));
 
     let main_texture = spawn_render_target_image(images);
@@ -94,7 +122,7 @@ fn setup(
         .spawn((
             Camera2dBundle {
                 camera_2d: Camera2d {
-                    clear_color: ClearColorConfig::Custom(Color::WHITE),
+                    clear_color: ClearColorConfig::Custom(Color::BLACK),
                     ..default()
                 },
                 camera: Camera {
@@ -168,6 +196,7 @@ fn resize_render_targets(
     }
 }
 
+// Util
 fn spawn_render_target_image(images: &mut ResMut<Assets<Image>>) -> Handle<Image> {
     let size = Extent3d {
         width: 960,
@@ -187,8 +216,100 @@ fn spawn_render_target_image(images: &mut ResMut<Assets<Image>>) -> Handle<Image
                 | TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         },
+        sampler_descriptor: ImageSampler::Descriptor(SamplerDescriptor {
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Nearest,
+            ..default()
+        }),
         ..default()
     };
     overlay_image.resize(size);
     images.add(overlay_image)
+}
+
+pub fn spawn_falloff_lookup_image(images: &mut Assets<Image>) {
+    const WIDTH: usize = 2048;
+    const HEIGHT: usize = 128;
+    let mut data = Vec::with_capacity(WIDTH * HEIGHT * 4);
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            let alpha: f32 = x as f32 / WIDTH as f32;
+            let intensity: f32 = y as f32 / HEIGHT as f32;
+            let falloff = alpha.powf(E.powf(1.5 - 3.0 * intensity));
+            for u in falloff.to_bits().to_le_bytes() {
+                data.push(u);
+            }
+        }
+    }
+    let image = Image::new_fill(
+        Extent3d {
+            width: WIDTH as u32,
+            height: HEIGHT as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &data[..],
+        TextureFormat::R32Float,
+    );
+    images.set_untracked(LIGHT2D_FALLOFF_LOOKUP_IMAGE_HANDLE, image);
+}
+
+fn spawn_circle_lookup_image(images: &mut Assets<Image>) {
+    const WIDTH: usize = 256;
+    const HEIGHT: usize = 256;
+    let mut data = Vec::with_capacity(WIDTH * HEIGHT * 4 * 4);
+    let center = Vec2::new(WIDTH as f32 / 2.0, HEIGHT as f32 / 2.0);
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            let pos = Vec2::new(x as f32, y as f32);
+            let distance = Vec2::distance(pos, center);
+            let red = if x == WIDTH - 1 || y == HEIGHT - 1 {
+                0.0
+            } else {
+                (1.0 - (2.0 * distance / (WIDTH as f32))).clamp(0.0, 1.0)
+            };
+
+            let angle_cos = (pos - center).normalize().y;
+            let angle_cos = if angle_cos.is_nan() { 1.0 } else { angle_cos };
+            let angle = angle_cos.acos().abs() / std::f32::consts::PI;
+            let green = (1.0 - angle).clamp(0.0, 1.0);
+
+            let direction = (center - pos).normalize();
+            let blue = direction.x;
+            let alpha = direction.y;
+
+            for f in vec![red, green, blue, alpha] {
+                for u in f.to_bits().to_le_bytes() {
+                    data.push(u);
+                }
+            }
+        }
+    }
+    let image = Image::new_fill(
+        Extent3d {
+            width: WIDTH as u32,
+            height: HEIGHT as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &data[..],
+        TextureFormat::Rgba32Float,
+    );
+    images.set_untracked(LIGHT2D_CIRCLE_LOOKUP_IMAGE_HANDLE, image);
+}
+
+fn create_light2d_fragment_target() -> ColorTargetState {
+    ColorTargetState {
+        format: TextureFormat::bevy_default(),
+        blend: Some(BlendState {
+            color: BlendComponent {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+            alpha: BlendComponent::REPLACE,
+        }),
+        write_mask: ColorWrites::ALL,
+    }
 }
