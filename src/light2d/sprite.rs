@@ -12,7 +12,6 @@ use bevy::{
 
 use super::{create_light2d_fragment_target, LIGHT2D_SPRITE_MATERIAL_SHADER_HANDLE};
 
-// Material
 #[derive(AsBindGroup, Reflect, Debug, Clone, TypeUuid)]
 #[reflect(Debug)]
 #[uuid = "26804bff-0161-4142-8f73-f810150f1f9c"]

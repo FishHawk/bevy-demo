@@ -8,10 +8,10 @@ use bevy::{
     render::{
         camera::RenderTarget,
         render_resource::{
-            Extent3d, FilterMode, SamplerDescriptor, TextureDescriptor, TextureDimension,
-            TextureFormat, TextureUsages, ColorTargetState, BlendState, BlendComponent, BlendFactor, BlendOperation, ColorWrites,
+            BlendComponent, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrites,
+            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        texture::{ImageSampler, BevyDefault},
+        texture::{BevyDefault, ImageSampler},
         view::RenderLayers,
     },
     sprite::{Material2dPlugin, MaterialMesh2dBundle},
@@ -29,6 +29,9 @@ pub use sprite::*;
 pub const RENDER_LAYER_WORLD: RenderLayers = RenderLayers::layer(0);
 pub const RENDER_LAYER_LIGHT: RenderLayers = RenderLayers::layer(1);
 pub const RENDER_LAYER_BASE: RenderLayers = RenderLayers::layer(2);
+
+pub const LIGHT2D_POINT_DEFAULT_MESH_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Mesh::TYPE_UUID, 268956803042264025);
 
 const LIGHT2D_FALLOFF_LOOKUP_IMAGE_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Image::TYPE_UUID, 17108410941913908125);
@@ -90,6 +93,12 @@ fn setup(
     ref mut images: ResMut<Assets<Image>>,
     mut overlay_materials: ResMut<Assets<Light2dOverlayMaterial>>,
 ) {
+    // Spawn default mesh
+    meshes.set_untracked(
+        LIGHT2D_POINT_DEFAULT_MESH_HANDLE,
+        Mesh::from(shape::Quad::default()),
+    );
+
     // Spawn lookup images
     spawn_falloff_lookup_image(images);
     spawn_circle_lookup_image(images);
@@ -216,12 +225,7 @@ fn spawn_render_target_image(images: &mut ResMut<Assets<Image>>) -> Handle<Image
                 | TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         },
-        sampler_descriptor: ImageSampler::Descriptor(SamplerDescriptor {
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Nearest,
-            ..default()
-        }),
+        sampler_descriptor: ImageSampler::Descriptor(ImageSampler::linear_descriptor()),
         ..default()
     };
     overlay_image.resize(size);
@@ -242,7 +246,7 @@ pub fn spawn_falloff_lookup_image(images: &mut Assets<Image>) {
             }
         }
     }
-    let image = Image::new_fill(
+    let mut image = Image::new_fill(
         Extent3d {
             width: WIDTH as u32,
             height: HEIGHT as u32,
@@ -252,6 +256,7 @@ pub fn spawn_falloff_lookup_image(images: &mut Assets<Image>) {
         &data[..],
         TextureFormat::R32Float,
     );
+    image.sampler_descriptor = ImageSampler::Descriptor(ImageSampler::linear_descriptor());
     images.set_untracked(LIGHT2D_FALLOFF_LOOKUP_IMAGE_HANDLE, image);
 }
 
@@ -286,7 +291,7 @@ fn spawn_circle_lookup_image(images: &mut Assets<Image>) {
             }
         }
     }
-    let image = Image::new_fill(
+    let mut image = Image::new_fill(
         Extent3d {
             width: WIDTH as u32,
             height: HEIGHT as u32,
@@ -296,6 +301,7 @@ fn spawn_circle_lookup_image(images: &mut Assets<Image>) {
         &data[..],
         TextureFormat::Rgba32Float,
     );
+    image.sampler_descriptor = ImageSampler::Descriptor(ImageSampler::linear_descriptor());
     images.set_untracked(LIGHT2D_CIRCLE_LOOKUP_IMAGE_HANDLE, image);
 }
 

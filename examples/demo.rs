@@ -64,7 +64,6 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset: ResMut<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
     ref mut images: ResMut<Assets<Image>>,
     mut background_materials: ResMut<Assets<BackgroundMaterial>>,
     mut light2d_sprite_materials: ResMut<Assets<Light2dSpriteMaterial>>,
@@ -125,14 +124,13 @@ fn setup(
         ),
     ));
 
-    let mesh = meshes.add(Mesh::from(shape::Quad::default()));
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: mesh.clone().into(),
+            mesh: LIGHT2D_POINT_DEFAULT_MESH_HANDLE.typed().into(),
             material: light2d_sprite_materials.add(Light2dSpriteMaterial {
-                color: Color::hex("ce61767f").unwrap(),
-                intensity: 0.5,
+                color: Color::RED,
                 sprite: asset.load("demo/light.png"),
+                intensity: 0.5,
             }),
             transform: Transform {
                 translation: Vec3::new(0.0, -50.0, 1.0),
@@ -146,7 +144,7 @@ fn setup(
 
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: mesh.clone().into(),
+            mesh: LIGHT2D_POINT_DEFAULT_MESH_HANDLE.typed().into(),
             material: light2d_point_materials.add(Light2dPointMaterial::default()),
             transform: Transform {
                 translation: Vec3::new(100.0, 0.0, 1.0),
@@ -160,7 +158,7 @@ fn setup(
 
     commands.spawn((
         MaterialMesh2dBundle {
-            mesh: mesh.clone().into(),
+            mesh: LIGHT2D_POINT_DEFAULT_MESH_HANDLE.typed().into(),
             material: light2d_point_materials.add(Light2dPointMaterial::default()),
             transform: Transform {
                 translation: Vec3::new(-100.0, 0.0, 1.0),

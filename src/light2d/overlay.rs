@@ -7,7 +7,6 @@ use bevy::{
 
 use super::LIGHT2D_OVERLAY_MATERIAL_SHADER_HANDLE;
 
-// Material
 #[derive(AsBindGroup, Reflect, Debug, Clone, TypeUuid)]
 #[reflect(Debug)]
 #[uuid = "509e4cd3-d94a-4e4d-8cc3-471a4f10da6d"]

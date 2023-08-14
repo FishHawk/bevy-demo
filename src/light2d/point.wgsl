@@ -3,7 +3,8 @@
 
 struct Light {
     color: vec4<f32>,
-    falloff_intensity: f32,
+    intensity: f32,
+    falloff: f32,
     outer_angle: f32,
     inner_radius_mult: f32,
     inner_angle_mult: f32,
@@ -38,9 +39,9 @@ fn fragment(
     attenuation = textureSample(
         falloff_lookup,
         falloff_lookup_sampler,
-        vec2<f32>(attenuation, light.falloff_intensity)
+        vec2<f32>(attenuation, light.falloff)
     ).r;
 
-    var output_color = light.color * attenuation;
+    var output_color = light.color * light.intensity * attenuation;
     return output_color;
 }

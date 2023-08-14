@@ -5,11 +5,9 @@ use bevy::{
         mesh::MeshVertexBufferLayout,
         render_asset::RenderAssets,
         render_resource::{
-            AsBindGroup, AsBindGroupShaderType, BlendComponent, BlendFactor, BlendOperation,
-            BlendState, ColorTargetState, ColorWrites, RenderPipelineDescriptor, ShaderRef,
-            ShaderType, SpecializedMeshPipelineError, TextureFormat,
+            AsBindGroup, AsBindGroupShaderType, RenderPipelineDescriptor, ShaderRef, ShaderType,
+            SpecializedMeshPipelineError,
         },
-        texture::BevyDefault,
     },
     sprite::{Material2d, Material2dKey},
 };
@@ -25,7 +23,8 @@ use super::{
 #[uniform(0, Light2dPointMaterialUniform)]
 pub struct Light2dPointMaterial {
     pub color: Color,
-    pub falloff_intensity: f32,
+    pub intensity: f32,
+    pub falloff: f32,
     pub inner_angle: f32,
     pub outer_angle: f32,
     pub inner_radius: f32,
@@ -41,10 +40,11 @@ impl Default for Light2dPointMaterial {
     fn default() -> Self {
         Self {
             color: Color::WHITE,
-            falloff_intensity: 0.5,
+            intensity: 1.0,
+            falloff: 0.5,
             inner_angle: 1.0,
             outer_angle: 1.0,
-            inner_radius: 0.5,
+            inner_radius: 0.0,
             falloff_lookup: LIGHT2D_FALLOFF_LOOKUP_IMAGE_HANDLE.clone().typed(),
             circle_lookup: LIGHT2D_CIRCLE_LOOKUP_IMAGE_HANDLE.clone().typed(),
         }
@@ -54,7 +54,8 @@ impl Default for Light2dPointMaterial {
 #[derive(Clone, Default, ShaderType)]
 pub struct Light2dPointMaterialUniform {
     pub color: Vec4,
-    pub falloff_intensity: f32,
+    pub intensity: f32,
+    pub falloff: f32,
     pub outer_angle: f32,
     pub inner_radius_mult: f32,
     pub inner_angle_mult: f32,
@@ -68,7 +69,8 @@ impl AsBindGroupShaderType<Light2dPointMaterialUniform> for Light2dPointMaterial
     ) -> Light2dPointMaterialUniform {
         Light2dPointMaterialUniform {
             color: self.color.as_linear_rgba_f32().into(),
-            falloff_intensity: self.falloff_intensity,
+            intensity: self.intensity,
+            falloff: self.falloff,
             outer_angle: self.outer_angle,
             inner_radius_mult: 1.0 / (1.0 - self.inner_radius),
             inner_angle_mult: 1.0 / (self.outer_angle - self.inner_angle),

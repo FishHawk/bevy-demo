@@ -17,6 +17,7 @@ var sprite_sampler: sampler;
 fn fragment(
     mesh: MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
-    let color = textureSample(sprite, sprite_sampler, mesh.uv);
+    let sprite_color = textureSample(sprite, sprite_sampler, mesh.uv);
+    let color = light.color.a * light.intensity * light.color * sprite_color;
     return color;
 }
