@@ -1,7 +1,5 @@
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
-    render::texture::{CompressedImageFormats, ImageType},
     window::{close_on_esc, PrimaryWindow},
 };
 use bevy_demo::*;
@@ -25,14 +23,16 @@ fn main() {
             BackgroundPlugin,
             Light2dPlugin,
         ))
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup_cameras, setup_shelter))
         .add_systems(
             Update,
             (
                 day_cycle,
+                debug_control_day_cycle,
                 (
                     update_background_color.before(BackgroundSystems),
                     update_ambient_light,
+                    debug_toggle_global_light,
                 ),
             )
                 .chain(),
@@ -40,14 +40,11 @@ fn main() {
         .add_systems(
             Update,
             (
-                debug_toggle_global_light,
                 close_on_esc,
                 control_selected_moveable,
                 update_moveable,
-                day_cycle,
                 update_camera_mode,
                 update_camera.before(BackgroundSystems),
-                debug_control_day_cycle,
             )
                 .chain(),
         )
@@ -56,64 +53,6 @@ fn main() {
             ..default()
         })
         .run();
-}
-
-fn setup(
-    mut commands: Commands,
-    mut asset: ResMut<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
-    mut background_materials: ResMut<Assets<BackgroundMaterial>>,
-    mut light2d_freeform_materials: ResMut<Assets<Light2dFreeformMaterial>>,
-) {
-    // Spawn building
-    spwan_shelter(
-        &mut commands,
-        &mut asset,
-        &mut meshes,
-        &mut images,
-        &mut background_materials,
-        &mut light2d_freeform_materials,
-    );
-
-    let person_image = load_texture("demo/person.png");
-    let person_size = person_image.texture_descriptor.size;
-    let person_size = Vec2::new(person_size.width as f32, person_size.height as f32);
-    commands.spawn((
-        sprite_bundle(
-            shelter_position(IVec2::new(3, 1), Vec2::ZERO),
-            person_size,
-            100.0,
-            images.add(person_image),
-        ),
-        moveable_bundle(
-            Collider::compound(vec![(
-                Vec2::new(0.0, -0.5 + 0.5 * 4.0 / person_size.y),
-                0.0,
-                Collider::cuboid(0.5, 0.5 * 4.0 / person_size.y),
-            )]),
-            80.0,
-        ),
-    ));
-
-    commands.spawn((
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 20.0,
-                color: Color::WHITE,
-                ..default()
-            },
-        )
-        .with_text_alignment(TextAlignment::Center)
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(5.0),
-            left: Val::Px(15.0),
-            ..default()
-        }),
-        GameDateTimeText,
-    ));
 }
 
 fn update_camera_mode(
@@ -141,22 +80,6 @@ fn update_camera_mode(
                     false
                 },
             );
-        }
-    }
-}
-
-fn debug_toggle_global_light(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut camera_query: Query<&mut Camera2d, With<LightCamera>>,
-) {
-    if keyboard_input.just_pressed(KeyCode::L) {
-        let mut camera2d = camera_query.single_mut();
-        if let ClearColorConfig::Custom(color) = camera2d.clear_color {
-            if color == Color::WHITE {
-                camera2d.clear_color = ClearColorConfig::Custom(Color::rgb(0.2, 0.2, 0.2));
-            } else {
-                camera2d.clear_color = ClearColorConfig::Custom(Color::WHITE);
-            }
         }
     }
 }
@@ -200,22 +123,4 @@ fn control_selected_moveable(
             };
         }
     }
-}
-
-// hacky
-fn load_texture(texture_path: &str) -> Image {
-    let real_path = "assets/".to_owned() + texture_path;
-    let ext = std::path::Path::new(&real_path)
-        .extension()
-        .unwrap()
-        .to_str()
-        .unwrap();
-    let img_bytes = std::fs::read(&real_path).unwrap();
-    Image::from_buffer(
-        &img_bytes,
-        ImageType::Extension(ext),
-        CompressedImageFormats::all(),
-        true,
-    )
-    .unwrap()
 }

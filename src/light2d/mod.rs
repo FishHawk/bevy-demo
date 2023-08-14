@@ -2,11 +2,9 @@ use std::f32::consts::E;
 
 use bevy::{
     asset::load_internal_asset,
-    core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
     reflect::TypeUuid,
     render::{
-        camera::RenderTarget,
         render_resource::{
             BlendComponent, BlendFactor, BlendOperation, BlendState, ColorTargetState, ColorWrites,
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
@@ -14,7 +12,7 @@ use bevy::{
         texture::{BevyDefault, ImageSampler},
         view::RenderLayers,
     },
-    sprite::{Material2dPlugin, MaterialMesh2dBundle},
+    sprite::Material2dPlugin,
     window::PrimaryWindow,
 };
 
@@ -27,10 +25,6 @@ pub use freeform::*;
 pub use overlay::*;
 pub use point::*;
 pub use sprite::*;
-
-pub const RENDER_LAYER_WORLD: RenderLayers = RenderLayers::layer(0);
-pub const RENDER_LAYER_LIGHT: RenderLayers = RenderLayers::layer(1);
-pub const RENDER_LAYER_BASE: RenderLayers = RenderLayers::layer(2);
 
 pub const LIGHT2D_DEFAULT_MESH_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Mesh::TYPE_UUID, 268956803042264025);
@@ -89,95 +83,26 @@ impl Plugin for Light2dPlugin {
             .add_plugins(Material2dPlugin::<Light2dSpriteMaterial>::default())
             .add_plugins(Material2dPlugin::<Light2dPointMaterial>::default())
             .add_plugins(Material2dPlugin::<Light2dFreeformMaterial>::default())
-            .add_systems(Startup, setup)
+            .add_systems(Startup, setup_default_assets)
             .add_systems(Update, resize_render_targets);
     }
 }
 
-#[derive(Component)]
-pub struct MainCamera;
-
-#[derive(Component)]
-pub struct LightCamera;
-
-fn setup(
-    ref mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    ref mut images: ResMut<Assets<Image>>,
-    mut overlay_materials: ResMut<Assets<Light2dOverlayMaterial>>,
-) {
-    // Spawn default mesh
+fn setup_default_assets(mut meshes: ResMut<Assets<Mesh>>, mut images: ResMut<Assets<Image>>) {
     meshes.set_untracked(
         LIGHT2D_DEFAULT_MESH_HANDLE,
         Mesh::from(shape::Quad::default()),
     );
 
-    // Spawn lookup images
-    spawn_falloff_lookup_image(images);
-    spawn_circle_lookup_image(images);
+    images.set_untracked(
+        LIGHT2D_FALLOFF_LOOKUP_IMAGE_HANDLE,
+        create_falloff_lookup_image(),
+    );
 
-    // Spawn cameras
-    commands.spawn((Camera2dBundle::default(), RENDER_LAYER_BASE));
-
-    let main_texture = spawn_render_target_image(images);
-    let camera_main = commands
-        .spawn((
-            Camera2dBundle {
-                camera_2d: Camera2d {
-                    clear_color: ClearColorConfig::Custom(Color::rgba(0.0, 0.0, 0.0, 0.0)),
-                    ..default()
-                },
-                camera: Camera {
-                    order: -1,
-                    target: RenderTarget::Image(main_texture.clone()),
-                    ..default()
-                },
-                ..default()
-            },
-            RENDER_LAYER_WORLD,
-            MainCamera,
-        ))
-        .id();
-
-    let light_texture = spawn_render_target_image(images);
-    let camera_light = commands
-        .spawn((
-            Camera2dBundle {
-                camera_2d: Camera2d {
-                    clear_color: ClearColorConfig::Custom(Color::BLACK),
-                    ..default()
-                },
-                camera: Camera {
-                    order: -1,
-                    target: RenderTarget::Image(light_texture.clone()),
-                    ..default()
-                },
-                transform: Transform::from_xyz(0.0, 0.0, 0.0),
-                ..default()
-            },
-            RENDER_LAYER_LIGHT,
-            LightCamera,
-        ))
-        .id();
-
-    commands.entity(camera_main).push_children(&[camera_light]);
-
-    let mesh = meshes.add(Mesh::from(shape::Quad::default()));
-    commands.spawn((
-        MaterialMesh2dBundle::<Light2dOverlayMaterial> {
-            mesh: mesh.clone().into(),
-            material: overlay_materials.add(Light2dOverlayMaterial {
-                main: main_texture,
-                light: light_texture,
-            }),
-            transform: Transform {
-                scale: Vec3::new(960.0, 540.0, 1.0),
-                ..default()
-            },
-            ..default()
-        },
-        RENDER_LAYER_BASE,
-    ));
+    images.set_untracked(
+        LIGHT2D_CIRCLE_LOOKUP_IMAGE_HANDLE,
+        create_circle_lookup_image(),
+    );
 }
 
 fn resize_render_targets(
@@ -201,6 +126,10 @@ fn resize_render_targets(
         }
     }
 
+    for mut transform in overlays.iter_mut() {
+        transform.scale = window_size.extend(transform.scale.z);
+    }
+
     return; // bug, see https://github.com/bevyengine/bevy/issues/6480
 
     let render_target_size = UVec2::new(window_size.x as u32, window_size.y as u32);
@@ -212,14 +141,9 @@ fn resize_render_targets(
             resize_render_target(render_target_size, render_target);
         }
     }
-
-    for mut transform in overlays.iter_mut() {
-        transform.scale = window_size.extend(transform.scale.z);
-    }
 }
 
-// Util
-fn spawn_render_target_image(images: &mut ResMut<Assets<Image>>) -> Handle<Image> {
+pub fn spawn_render_target_image(images: &mut Assets<Image>) -> Handle<Image> {
     let size = Extent3d {
         width: 960,
         height: 540,
@@ -245,7 +169,7 @@ fn spawn_render_target_image(images: &mut ResMut<Assets<Image>>) -> Handle<Image
     images.add(overlay_image)
 }
 
-pub fn spawn_falloff_lookup_image(images: &mut Assets<Image>) {
+fn create_falloff_lookup_image() -> Image {
     const WIDTH: usize = 2048;
     const HEIGHT: usize = 128;
     let mut data = Vec::with_capacity(WIDTH * HEIGHT * 4);
@@ -270,10 +194,10 @@ pub fn spawn_falloff_lookup_image(images: &mut Assets<Image>) {
         TextureFormat::R32Float,
     );
     image.sampler_descriptor = ImageSampler::Descriptor(ImageSampler::linear_descriptor());
-    images.set_untracked(LIGHT2D_FALLOFF_LOOKUP_IMAGE_HANDLE, image);
+    image
 }
 
-fn spawn_circle_lookup_image(images: &mut Assets<Image>) {
+fn create_circle_lookup_image() -> Image {
     const WIDTH: usize = 256;
     const HEIGHT: usize = 256;
     let mut data = Vec::with_capacity(WIDTH * HEIGHT * 4 * 4);
@@ -315,7 +239,7 @@ fn spawn_circle_lookup_image(images: &mut Assets<Image>) {
         TextureFormat::Rgba32Float,
     );
     image.sampler_descriptor = ImageSampler::Descriptor(ImageSampler::linear_descriptor());
-    images.set_untracked(LIGHT2D_CIRCLE_LOOKUP_IMAGE_HANDLE, image);
+    image
 }
 
 fn create_light2d_fragment_target() -> ColorTargetState {

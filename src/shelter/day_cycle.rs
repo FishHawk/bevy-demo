@@ -1,8 +1,8 @@
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
 
-use crate::{BackgroundMaterial, Light2dFreeformMaterial};
+use crate::{BackgroundMaterial, Light2dFreeformMaterial, LightCamera};
 
 #[derive(Resource, Default)]
 pub struct GameDateTime {
@@ -87,5 +87,21 @@ pub fn debug_control_day_cycle(
     }
     if keyboard_input.just_pressed(KeyCode::E) {
         game_date_time.time = ((game_date_time.time * 24.0 + 1.0).floor() / 24.0).fract();
+    }
+}
+
+pub fn debug_toggle_global_light(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut camera_query: Query<&mut Camera2d, With<LightCamera>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::L) {
+        let mut camera2d = camera_query.single_mut();
+        if let ClearColorConfig::Custom(color) = camera2d.clear_color {
+            if color == Color::WHITE {
+                camera2d.clear_color = ClearColorConfig::Custom(Color::BLACK);
+            } else {
+                camera2d.clear_color = ClearColorConfig::Custom(Color::WHITE);
+            }
+        }
     }
 }
