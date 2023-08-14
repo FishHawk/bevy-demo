@@ -184,6 +184,7 @@ pub fn update_camera(
         let scale = scale / boundary.scale_level as f32;
         camera_transform.scale.x = scale;
         camera_transform.scale.y = scale;
+        println!("{}",scale);
     }
 
     {

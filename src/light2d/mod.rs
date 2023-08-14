@@ -11,6 +11,7 @@ use bevy::{
         view::RenderLayers,
     },
     sprite::{Material2dPlugin, MaterialMesh2dBundle},
+    window::PrimaryWindow,
 };
 
 pub mod overlay;
@@ -49,12 +50,16 @@ impl Plugin for Light2dPlugin {
 
         app.add_plugins(Material2dPlugin::<Light2dOverlayMaterial>::default())
             .add_plugins(Material2dPlugin::<Light2dSpriteMaterial>::default())
-            .add_systems(Startup, setup);
+            .add_systems(Startup, setup)
+            .add_systems(Update, resize_render_targets);
     }
 }
 
 #[derive(Component)]
 pub struct MainCamera;
+
+#[derive(Component)]
+pub struct LightCamera;
 
 fn setup(
     ref mut commands: Commands,
@@ -62,12 +67,10 @@ fn setup(
     ref mut images: ResMut<Assets<Image>>,
     mut overlay_materials: ResMut<Assets<Light2dOverlayMaterial>>,
 ) {
-    commands
-        .spawn((Camera2dBundle::default(), RENDER_LAYER_BASE))
-        .id();
+    commands.spawn((Camera2dBundle::default(), RENDER_LAYER_BASE));
 
-    let world = spawn_camera_render_to_image(images);
-    let camera_world = commands
+    let main_texture = spawn_render_target_image(images);
+    let camera_main = commands
         .spawn((
             Camera2dBundle {
                 camera_2d: Camera2d {
@@ -76,7 +79,7 @@ fn setup(
                 },
                 camera: Camera {
                     order: -1,
-                    target: RenderTarget::Image(world.clone()),
+                    target: RenderTarget::Image(main_texture.clone()),
                     ..default()
                 },
                 ..default()
@@ -86,7 +89,7 @@ fn setup(
         ))
         .id();
 
-    let overlay = spawn_camera_render_to_image(images);
+    let light_texture = spawn_render_target_image(images);
     let camera_light = commands
         .spawn((
             Camera2dBundle {
@@ -96,23 +99,27 @@ fn setup(
                 },
                 camera: Camera {
                     order: -1,
-                    target: RenderTarget::Image(overlay.clone()),
+                    target: RenderTarget::Image(light_texture.clone()),
                     ..default()
                 },
                 transform: Transform::from_xyz(0.0, 0.0, 0.0),
                 ..default()
             },
             RENDER_LAYER_LIGHT,
+            LightCamera,
         ))
         .id();
 
-    commands.entity(camera_world).push_children(&[camera_light]);
+    commands.entity(camera_main).push_children(&[camera_light]);
 
     let mesh = meshes.add(Mesh::from(shape::Quad::default()));
     commands.spawn((
         MaterialMesh2dBundle::<Light2dOverlayMaterial> {
             mesh: mesh.clone().into(),
-            material: overlay_materials.add(Light2dOverlayMaterial { world, overlay }),
+            material: overlay_materials.add(Light2dOverlayMaterial {
+                main: main_texture,
+                light: light_texture,
+            }),
             transform: Transform {
                 scale: Vec3::new(960.0, 540.0, 1.0),
                 ..default()
@@ -123,7 +130,45 @@ fn setup(
     ));
 }
 
-fn spawn_camera_render_to_image(images: &mut ResMut<Assets<Image>>) -> Handle<Image> {
+fn resize_render_targets(
+    materials: ResMut<Assets<Light2dOverlayMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    mut overlays: Query<&mut Transform, With<Handle<Light2dOverlayMaterial>>>,
+) {
+    let primary_window = window_query.single();
+    let window_size = Vec2::new(primary_window.width(), primary_window.height());
+
+    fn resize_render_target(render_target_size: UVec2, render_target: &mut Image) {
+        if render_target_size.x != render_target.texture_descriptor.size.width
+            && render_target_size.y != render_target.texture_descriptor.size.height
+        {
+            render_target.resize(Extent3d {
+                width: render_target_size.x,
+                height: render_target_size.y,
+                ..default()
+            });
+        }
+    }
+
+    return; // bug, see https://github.com/bevyengine/bevy/issues/6480
+
+    let render_target_size = UVec2::new(window_size.x as u32, window_size.y as u32);
+    for (_, material) in materials.iter() {
+        if let Some(render_target) = images.get_mut(&material.main) {
+            resize_render_target(render_target_size, render_target);
+        }
+        if let Some(render_target) = images.get_mut(&material.light) {
+            resize_render_target(render_target_size, render_target);
+        }
+    }
+
+    for mut transform in overlays.iter_mut() {
+        transform.scale = window_size.extend(transform.scale.z);
+    }
+}
+
+fn spawn_render_target_image(images: &mut ResMut<Assets<Image>>) -> Handle<Image> {
     let size = Extent3d {
         width: 960,
         height: 540,

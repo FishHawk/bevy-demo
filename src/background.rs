@@ -7,7 +7,6 @@ use bevy::{
             AddressMode, AsBindGroup, FilterMode, SamplerDescriptor, ShaderRef, TextureFormat,
         },
         texture::{CompressedImageFormats, ImageSampler, ImageType},
-        view::RenderLayers,
     },
     sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
     window::PrimaryWindow,

@@ -14,10 +14,10 @@ use super::LIGHT2D_OVERLAY_MATERIAL_SHADER_HANDLE;
 pub struct Light2dOverlayMaterial {
     #[texture(0)]
     #[sampler(1)]
-    pub world: Handle<Image>,
+    pub main: Handle<Image>,
     #[texture(2)]
     #[sampler(3)]
-    pub overlay: Handle<Image>,
+    pub light: Handle<Image>,
 }
 
 impl Material2d for Light2dOverlayMaterial {
