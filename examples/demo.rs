@@ -21,6 +21,7 @@ fn main() {
             RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(30.0),
             RapierDebugRenderPlugin::default(),
             BackgroundPlugin,
+            OutlinePlugin,
             Light2dPlugin,
         ))
         .add_systems(Startup, (setup_cameras, setup_shelter))
