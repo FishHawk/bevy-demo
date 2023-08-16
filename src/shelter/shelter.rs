@@ -1,28 +1,12 @@
-use bevy::{
-    prelude::*,
-    render::{
-        render_resource::{AddressMode, FilterMode, SamplerDescriptor},
-        texture::{CompressedImageFormats, ImageSampler, ImageType},
-    },
-    sprite::MaterialMesh2dBundle,
-};
-use bevy_rapier2d::prelude::Collider;
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
 use crate::{
-    freeform_polygon_mesh, moveable_bundle, solid_bundle, stair_bundle, Background,
+    freeform_polygon_mesh, moveable_bundle, solid_bundle, spawn_person, stair_bundle, Background,
     BackgroundBundle, BackgroundMaterial, BackgroundMaterialImages, BackgroundRepeat,
     CameraBoundary, CameraMode, GameDateTimeText, Light2dFreeformMaterial, LightIntensity,
     OutlineMaterial, SolidBundle, StairBundle, OUTLINE_MATERIAL_MESH_HANDLE, RENDER_LAYER_LIGHT1,
     RENDER_LAYER_MAIN2,
 };
-
-fn transform(position: Vec2, size: Vec2, z: f32) -> Transform {
-    Transform {
-        translation: (position + size / 2.0).extend(z),
-        scale: size.extend(1.),
-        ..default()
-    }
-}
 
 fn sprite_placeholder(position: Vec2, size: Vec2, z: f32, color: Color) -> SpriteBundle {
     SpriteBundle {
@@ -99,33 +83,7 @@ pub fn setup_shelter(
     mut light2d_freeform_materials: ResMut<Assets<Light2dFreeformMaterial>>,
     mut outline_materials: ResMut<Assets<OutlineMaterial>>,
 ) {
-    let person_image = load_texture("demo/person.png");
-    let person_size = person_image.texture_descriptor.size;
-    let person_size = Vec2::new(person_size.width as f32, person_size.height as f32);
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: OUTLINE_MATERIAL_MESH_HANDLE.typed().into(),
-            material: outline_materials.add(OutlineMaterial {
-                color: Color::CYAN,
-                line_width: 1,
-                texture: images.add(person_image),
-            }),
-            transform: transform(
-                shelter_position(IVec2::new(3, 1), Vec2::ZERO),
-                person_size,
-                100.0,
-            ),
-            ..Default::default()
-        },
-        moveable_bundle(
-            Collider::compound(vec![(
-                Vec2::new(0.0, -0.5 + 0.5 * 4.0 / person_size.y),
-                0.0,
-                Collider::cuboid(0.5, 0.5 * 4.0 / person_size.y),
-            )]),
-            80.0,
-        ),
-    ));
+    spawn_person(&mut commands, images, &mut outline_materials);
 
     commands.spawn((
         TextBundle::from_section(
@@ -296,31 +254,4 @@ pub fn setup_shelter(
             Vec2::new(2.0 * width, INTERVAL),
         ));
     }
-}
-
-// hacky
-fn load_texture(texture_path: &str) -> Image {
-    let real_path = "assets/".to_owned() + texture_path;
-    let ext = std::path::Path::new(&real_path)
-        .extension()
-        .unwrap()
-        .to_str()
-        .unwrap();
-    let img_bytes = std::fs::read(&real_path).unwrap();
-    let mut image = Image::from_buffer(
-        &img_bytes,
-        ImageType::Extension(ext),
-        CompressedImageFormats::all(),
-        true,
-    )
-    .unwrap();
-    image.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
-        address_mode_u: AddressMode::ClampToBorder,
-        address_mode_v: AddressMode::ClampToBorder,
-        mag_filter: FilterMode::Nearest,
-        min_filter: FilterMode::Nearest,
-        mipmap_filter: FilterMode::Nearest,
-        ..default()
-    });
-    image
 }

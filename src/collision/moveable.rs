@@ -1,10 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-pub const GROUP_MOVEABLE: Group = Group::GROUP_1;
-pub const GROUP_MOVEABLE_IN_STAIR: Group = Group::GROUP_2;
-pub const GROUP_SOLID: Group = Group::GROUP_3;
-pub const GROUP_STAIR: Group = Group::GROUP_4;
+use crate::{GROUP_MOVEABLE, GROUP_MOVEABLE_IN_STAIR, GROUP_SOLID, GROUP_STAIR};
 
 // Component
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
