@@ -18,10 +18,10 @@ impl Plugin for CollisionPlugin {
             RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(30.0),
             RapierDebugRenderPlugin::default(),
         ))
-        .init_resource::<EntitiesUnderCursor>()
+        .init_resource::<WorldCursor>()
         .add_systems(
             Update,
-            (update_moveable, outline_selectable).in_set(CollisionSystems),
+            (update_moveable, update_world_cursor).in_set(CollisionSystems),
         );
     }
 }

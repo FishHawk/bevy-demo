@@ -37,7 +37,7 @@ fn main() {
             Update,
             (
                 close_on_esc,
-                (select_person, control_selected_person, update_camera)
+                (select_person, update_move_intend, update_camera)
                     .chain()
                     .before(BackgroundSystems)
                     .after(CollisionSystems),

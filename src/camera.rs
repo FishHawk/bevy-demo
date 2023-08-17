@@ -1,4 +1,8 @@
-use bevy::{input::mouse::MouseWheel, prelude::*, window::PrimaryWindow};
+use bevy::{
+    input::mouse::{MouseMotion, MouseWheel},
+    prelude::*,
+    window::PrimaryWindow,
+};
 
 use crate::MainCamera;
 
@@ -19,15 +23,15 @@ pub struct CameraBoundary {
 }
 
 pub fn update_camera(
-    time: Res<Time>,
     mut boundary: ResMut<CameraBoundary>,
-    keyboard_input: Res<Input<KeyCode>>,
+    mouse_buttons: Res<Input<MouseButton>>,
     mut wheel_events: EventReader<MouseWheel>,
+    mut motion_events: EventReader<MouseMotion>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut camera_query: Query<&mut Transform, With<MainCamera>>,
+    mut camera_query: Query<(&mut Transform, &Camera, &GlobalTransform), With<MainCamera>>,
     target_query: Query<&Transform, Without<MainCamera>>,
 ) {
-    let mut camera_transform = camera_query.single_mut();
+    let (mut camera_transform, camera, camera_global_transform) = camera_query.single_mut();
     let window = window_query.single();
 
     let target_transform = if let CameraMode::Follow(target) = boundary.mode {
@@ -63,24 +67,19 @@ pub fn update_camera(
     {
         let camera_center = match boundary.mode {
             CameraMode::Free => {
-                let mut x_direction = 0.0;
-                let mut y_direction = 0.0;
-                if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::A) {
-                    x_direction -= 1.;
+                let mut motion = Vec2::ZERO;
+                if mouse_buttons.pressed(MouseButton::Right) {
+                    for ev in motion_events.iter() {
+                        motion += ev.delta;
+                    }
+                    motion = camera
+                        .viewport_to_world_2d(camera_global_transform, motion)
+                        .unwrap()
+                        - camera
+                            .viewport_to_world_2d(camera_global_transform, Vec2::new(0.0, 0.0))
+                            .unwrap();
                 }
-                if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::D) {
-                    x_direction += 1.;
-                }
-                if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
-                    y_direction += 1.;
-                }
-                if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
-                    y_direction -= 1.;
-                }
-
-                const CAMERA_SPEED: f32 = 300.0;
-                camera_transform.translation.truncate()
-                    + Vec2::new(x_direction, y_direction) * CAMERA_SPEED * time.delta_seconds()
+                camera_transform.translation.truncate() - motion
             }
             CameraMode::Follow(_) => match target_transform {
                 Some(target_transform) => {

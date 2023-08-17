@@ -1,11 +1,10 @@
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
 use crate::{
-    freeform_polygon_mesh, moveable_bundle, solid_bundle, spawn_person, stair_bundle, Background,
-    BackgroundBundle, BackgroundMaterial, BackgroundMaterialImages, BackgroundRepeat,
-    CameraBoundary, CameraMode, GameDateTimeText, Light2dFreeformMaterial, LightIntensity,
-    OutlineMaterial, SolidBundle, StairBundle, OUTLINE_MATERIAL_MESH_HANDLE, RENDER_LAYER_LIGHT1,
-    RENDER_LAYER_MAIN2,
+    freeform_polygon_mesh, solid_bundle, spawn_person, stair_bundle, Background, BackgroundBundle,
+    BackgroundMaterial, BackgroundMaterialImages, BackgroundRepeat, CameraBoundary, CameraMode,
+    GameDateTimeText, Layer, Light2dFreeformMaterial, LightIntensity, OutlineMaterial, PathFind,
+    SelectedPerson, SolidBundle, StairBundle, RENDER_LAYER_LIGHT1, RENDER_LAYER_MAIN2,
 };
 
 fn sprite_placeholder(position: Vec2, size: Vec2, z: f32, color: Color) -> SpriteBundle {
@@ -83,7 +82,19 @@ pub fn setup_shelter(
     mut light2d_freeform_materials: ResMut<Assets<Light2dFreeformMaterial>>,
     mut outline_materials: ResMut<Assets<OutlineMaterial>>,
 ) {
-    spawn_person(&mut commands, images, &mut outline_materials);
+    let id = spawn_person(
+        &mut commands,
+        images,
+        &mut outline_materials,
+        shelter_position(IVec2::new(3, 1), Vec2::ZERO),
+    );
+    spawn_person(
+        &mut commands,
+        images,
+        &mut outline_materials,
+        shelter_position(IVec2::new(2, 1), Vec2::ZERO),
+    );
+    commands.insert_resource(SelectedPerson(id));
 
     commands.spawn((
         TextBundle::from_section(
@@ -216,6 +227,31 @@ pub fn setup_shelter(
         Vec2::new(-width, -height),
         Vec2::new(2.0 * width, BORDER),
     ));
+
+    let mut path_find = PathFind {
+        origin: Vec2::new(-500.0, -500.0),
+        size: UVec2::new(100, 50),
+        layers_index: vec![0; 100 * 50],
+        layers: vec![],
+    };
+    for y in 0..room_number.y {
+        let from_y = (-(y as f32 + 1.0) * (LAYER_HEIGHT + INTERVAL) + 500.0) / 10.0;
+        let to_y = from_y + (LAYER_HEIGHT + INTERVAL) / 10.0;
+
+        let from = UVec2::new(0, from_y as u32);
+        let to = UVec2::new(100, to_y as u32);
+        path_find.add_layer(
+            from,
+            to,
+            Layer {
+                id: y,
+                x_left: 0,
+                x_right: 100,
+                y: from_y as u32,
+            },
+        );
+    }
+    commands.insert_resource(path_find);
 
     // layers
     let wall_image = asset.load("demo/wall.png");

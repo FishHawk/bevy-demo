@@ -6,7 +6,10 @@ use bevy_rapier2d::prelude::*;
 use crate::{MainCamera, GROUP_SELECTABLE, GROUP_SELECTABLE_SENSOR};
 
 #[derive(Resource, Default)]
-pub struct EntitiesUnderCursor(pub HashSet<Entity>);
+pub struct WorldCursor {
+    pub position: Vec2,
+    pub entities_below: HashSet<Entity>,
+}
 
 pub type SelectableBundle = (Sensor, Collider, CollisionGroups);
 
@@ -18,8 +21,8 @@ pub fn selectable_bundle() -> SelectableBundle {
     )
 }
 
-pub fn outline_selectable(
-    mut hovered_entities: ResMut<EntitiesUnderCursor>,
+pub fn update_world_cursor(
+    mut world_cursor: ResMut<WorldCursor>,
     rapier_context: Res<RapierContext>,
     windows_query: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
@@ -32,7 +35,8 @@ pub fn outline_selectable(
         .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
         .map(|ray| ray.origin.truncate())
     {
-        hovered_entities.0.clear();
+        world_cursor.position = cursor_position;
+        world_cursor.entities_below.clear();
         rapier_context.intersections_with_point(
             cursor_position,
             QueryFilter::from(CollisionGroups::new(
@@ -40,7 +44,7 @@ pub fn outline_selectable(
                 GROUP_SELECTABLE,
             )),
             |entity| {
-                hovered_entities.0.insert(entity);
+                world_cursor.entities_below.insert(entity);
                 true
             },
         );

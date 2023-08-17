@@ -5,14 +5,17 @@ use bevy::{
         texture::{CompressedImageFormats, ImageSampler, ImageType},
     },
     sprite::MaterialMesh2dBundle,
+    window::PrimaryWindow,
 };
 use bevy_rapier2d::prelude::Collider;
 
 use crate::{
-    moveable_bundle, selectable_bundle, shelter_position, CameraBoundary, CameraMode,
-    EntitiesUnderCursor, OutlineMaterial, OUTLINE_MATERIAL_MESH_HANDLE, MoveIntendVertical, Moveable, MoveIntendHorizontal,
+    moveable_bundle, selectable_bundle, MainCamera, MoveIntendHorizontal, MoveIntendVertical,
+    MoveTo, Moveable, OutlineMaterial, WorldCursor, OUTLINE_MATERIAL_MESH_HANDLE,
 };
 
+#[derive(Resource)]
+pub struct SelectedPerson(pub Entity);
 #[derive(Component)]
 pub struct Person;
 
@@ -28,18 +31,15 @@ pub fn spawn_person(
     commands: &mut Commands,
     images: &mut Assets<Image>,
     outline_materials: &mut Assets<OutlineMaterial>,
-) {
+    position: Vec2,
+) -> Entity {
     let person_image = load_texture("demo/person.png");
     let person_size = person_image.texture_descriptor.size;
     let person_size = Vec2::new(person_size.width as f32, person_size.height as f32);
     commands
         .spawn((
             SpatialBundle {
-                transform: transform(
-                    shelter_position(IVec2::new(3, 1), Vec2::ZERO),
-                    person_size,
-                    100.0,
-                ),
+                transform: transform(position, person_size, 100.0),
                 ..default()
             },
             moveable_bundle(
@@ -65,19 +65,21 @@ pub fn spawn_person(
                 selectable_bundle(),
                 Person,
             ));
-        });
+        })
+        .id()
 }
 
 pub fn select_person(
-    entities_under_cursor: Res<EntitiesUnderCursor>,
+    mut commands: Commands,
+    world_cursor: Res<WorldCursor>,
     buttons: Res<Input<MouseButton>>,
-    mut boundary: ResMut<CameraBoundary>,
+    mut selected_person: ResMut<SelectedPerson>,
     mut materials: ResMut<Assets<OutlineMaterial>>,
     person_query: Query<(Entity, &Parent, &Handle<OutlineMaterial>), With<Person>>,
 ) {
     let mut person_under_cursor: Option<Entity> = None;
     for (person, parent, handle) in person_query.iter() {
-        let under_cursor = entities_under_cursor.0.contains(&person);
+        let under_cursor = world_cursor.entities_below.contains(&person);
         if let Some(material) = materials.get_mut(handle) {
             material.line_width = if under_cursor { 1 } else { 0 };
         }
@@ -87,53 +89,52 @@ pub fn select_person(
     }
 
     if buttons.just_pressed(MouseButton::Left) {
-        boundary.mode = CameraMode::Free;
         if let Some(person) = person_under_cursor {
-            boundary.mode = CameraMode::Follow(person);
+            selected_person.0 = person;
+        } else {
+            commands
+                .entity(selected_person.0)
+                .insert(MoveTo(world_cursor.position));
         }
     }
 }
 
-pub fn control_selected_person(
-    boundary: ResMut<CameraBoundary>,
-    keyboard_input: Res<Input<KeyCode>>,
-    mut moveable_query: Query<(Entity, &mut Moveable)>,
-) {
-    let selected_entity = match boundary.mode {
-        CameraMode::Free => Entity::PLACEHOLDER,
-        CameraMode::Follow(entity) => entity,
-    };
-    for (entity, mut moveable) in moveable_query.iter_mut() {
-        moveable.intend_horizontal = MoveIntendHorizontal::None;
-        moveable.intend_vertical = MoveIntendVertical::None;
-        if entity == selected_entity {
-            let mut direction_x = 0;
-            let mut direction_y = 0;
-            if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::A) {
-                direction_x -= 1;
-            }
-            if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::D) {
-                direction_x += 1;
-            }
-            if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
-                direction_y += 1;
-            }
-            if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
-                direction_y -= 1;
-            }
-            moveable.intend_horizontal = match direction_x {
-                x if x < 0 => MoveIntendHorizontal::Left,
-                x if x > 0 => MoveIntendHorizontal::Right,
-                _ => MoveIntendHorizontal::None,
-            };
-            moveable.intend_vertical = match direction_y {
-                y if y < 0 => MoveIntendVertical::Down,
-                y if y > 0 => MoveIntendVertical::Up,
-                _ => MoveIntendVertical::None,
-            };
-        }
-    }
-}
+// pub fn control_selected_person(
+//     selected_person: Res<SelectedPerson>,
+//     // keyboard_input: Res<Input<KeyCode>>,
+//     mut moveable_query: Query<(Entity, &mut Moveable)>,
+// ) {
+//     for (entity, mut moveable) in moveable_query.iter_mut() {
+//         moveable.intend_horizontal = MoveIntendHorizontal::None;
+//         moveable.intend_vertical = MoveIntendVertical::None;
+//         if entity == selected_person.0 {
+//             let mut direction_x = 0;
+//             let mut direction_y = 0;
+//             if keyboard_input.pressed(KeyCode::Left) || keyboard_input.pressed(KeyCode::A) {
+//                 direction_x -= 1;
+//             }
+//             if keyboard_input.pressed(KeyCode::Right) || keyboard_input.pressed(KeyCode::D) {
+//                 direction_x += 1;
+//             }
+//             if keyboard_input.pressed(KeyCode::Up) || keyboard_input.pressed(KeyCode::W) {
+//                 direction_y += 1;
+//             }
+//             if keyboard_input.pressed(KeyCode::Down) || keyboard_input.pressed(KeyCode::S) {
+//                 direction_y -= 1;
+//             }
+//             moveable.intend_horizontal = match direction_x {
+//                 x if x < 0 => MoveIntendHorizontal::Left,
+//                 x if x > 0 => MoveIntendHorizontal::Right,
+//                 _ => MoveIntendHorizontal::None,
+//             };
+//             moveable.intend_vertical = match direction_y {
+//                 y if y < 0 => MoveIntendVertical::Down,
+//                 y if y > 0 => MoveIntendVertical::Up,
+//                 _ => MoveIntendVertical::None,
+//             };
+//         }
+//     }
+// }
 
 // hacky
 fn load_texture(texture_path: &str) -> Image {
