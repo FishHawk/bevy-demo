@@ -5,27 +5,18 @@ use bevy::{
         texture::{CompressedImageFormats, ImageSampler, ImageType},
     },
     sprite::MaterialMesh2dBundle,
-    window::PrimaryWindow,
 };
 use bevy_rapier2d::prelude::Collider;
 
 use crate::{
-    moveable_bundle, selectable_bundle, MainCamera, MoveIntendHorizontal, MoveIntendVertical,
-    MoveTo, Moveable, OutlineMaterial, WorldCursor, OUTLINE_MATERIAL_MESH_HANDLE,
+    moveable_bundle, selectable_bundle, spatial_bundle, MoveTo, OutlineMaterial, WorldCursor,
+    OUTLINE_MATERIAL_MESH_HANDLE,
 };
 
 #[derive(Resource)]
 pub struct SelectedPerson(pub Entity);
 #[derive(Component)]
 pub struct Person;
-
-fn transform(position: Vec2, size: Vec2, z: f32) -> Transform {
-    Transform {
-        translation: (position + size / 2.0).extend(z),
-        scale: size.extend(1.),
-        ..default()
-    }
-}
 
 pub fn spawn_person(
     commands: &mut Commands,
@@ -38,10 +29,7 @@ pub fn spawn_person(
     let person_size = Vec2::new(person_size.width as f32, person_size.height as f32);
     commands
         .spawn((
-            SpatialBundle {
-                transform: transform(position, person_size, 100.0),
-                ..default()
-            },
+            spatial_bundle(position, person_size, 100.0),
             moveable_bundle(
                 Collider::compound(vec![(
                     Vec2::new(0.0, -0.5 + 0.5 * 4.0 / person_size.y),

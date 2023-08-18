@@ -14,15 +14,12 @@ pub struct CollisionPlugin;
 
 impl Plugin for CollisionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(30.0),
-            RapierDebugRenderPlugin::default(),
-        ))
-        .init_resource::<WorldCursor>()
-        .add_systems(
-            Update,
-            (update_moveable, update_world_cursor).in_set(CollisionSystems),
-        );
+        app.add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(30.0))
+            .init_resource::<WorldCursor>()
+            .add_systems(
+                Update,
+                (update_moveable, update_world_cursor).in_set(CollisionSystems),
+            );
     }
 }
 

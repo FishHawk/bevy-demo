@@ -30,7 +30,7 @@ impl PathFind {
             .min(self.size - 1)
     }
 
-    fn from_block_position(&self, position: UVec2) -> Vec2 {
+    pub fn from_block_position(&self, position: UVec2) -> Vec2 {
         position.as_vec2() * BLOCK_SIZE + self.origin
     }
 
@@ -55,31 +55,7 @@ pub fn update_move_intend(
     mut commands: Commands,
     path_find: Res<PathFind>,
     mut moveable_query: Query<(Entity, &mut Moveable, &Transform, &MoveTo)>,
-    mut gizmos: Gizmos,
 ) {
-    // let mut g = UnGraph::<i32, ()>::from_edges(&[(1, 2), (2, 3), (3, 4), (1, 4)]);
-
-    let colors = vec![
-        Color::RED,
-        Color::BLUE,
-        Color::GREEN,
-        Color::CYAN,
-        Color::YELLOW,
-        Color::GOLD,
-    ];
-    for x in 0..path_find.size.x {
-        for y in 0..path_find.size.y {
-            let index = x * path_find.size.y + y;
-            let index = path_find.layers_index[index as usize];
-            gizmos.rect_2d(
-                path_find.from_block_position(UVec2::new(x, y)),
-                0.0,
-                Vec2::splat(10.),
-                colors[index % colors.len()],
-            );
-        }
-    }
-
     for (entity, mut moveable, transform, move_to) in moveable_query.iter_mut() {
         let from = transform.translation.truncate();
         let to = move_to.0;

@@ -18,6 +18,7 @@ fn main() {
             BackgroundPlugin,
             OutlinePlugin,
             Light2dPlugin,
+            DebugPlugin,
         ))
         .add_systems(Startup, (setup_cameras, setup_shelter))
         .add_systems(
