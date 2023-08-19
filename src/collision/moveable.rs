@@ -46,12 +46,12 @@ pub type MoveableBundle = (
     LockedAxes,
     CollisionGroups,
 );
-pub fn moveable_bundle(collider: Collider, speed: f32) -> MoveableBundle {
+pub fn moveable_bundle(speed: f32) -> MoveableBundle {
     (
         Moveable { speed, ..default() },
         GravityScale(1.0),
         RigidBody::Dynamic,
-        collider,
+        Collider::cuboid(0.5, 0.5),
         LockedAxes::ROTATION_LOCKED,
         CollisionGroups::new(GROUP_MOVEABLE, GROUP_SOLID | GROUP_STAIR),
     )

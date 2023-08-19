@@ -1,48 +1,49 @@
 use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 
 use crate::{
-    freeform_polygon_mesh, solid_bundle, spawn_person, sprite_bundle_pure_color, stair_bundle,
-    transform_bundle, Background, BackgroundBundle, BackgroundMaterial, BackgroundMaterialImages,
-    BackgroundRepeat, CameraBoundary, CameraMode, GameDateTimeText, Layer, Light2dFreeformMaterial,
-    LightIntensity, OutlineMaterial, PathFind, SelectedPerson, SolidBundle, StairBundle,
-    RENDER_LAYER_LIGHT1, RENDER_LAYER_MAIN2, sprite_bundle,
+    freeform_polygon_mesh, pure_color_bundle_tile, solid_bundle, spawn_person, sprite_bundle_tile,
+    stair_bundle, transform_2d_tile_m, transform_bundle_tile, world_coor, Background,
+    BackgroundBundle, BackgroundMaterial, BackgroundMaterialImages, BackgroundRepeat,
+    CameraBoundary, CameraMode, GameDateTimeText, Light2dFreeformMaterial, LightIntensity,
+    OutlineMaterial, PathFind, SelectedPerson, SolidBundle, StairBundle, RENDER_LAYER_LIGHT1,
+    RENDER_LAYER_MAIN2,
 };
 
-fn stair_bundle_pair(position1: Vec2, position2: Vec2) -> Vec<(TransformBundle, StairBundle)> {
-    let size = Vec2::new(20.0, 2.0);
+fn stair_bundle_pair(position1: IVec2, position2: IVec2) -> Vec<(TransformBundle, StairBundle)> {
+    let size = IVec2::new(2, 1);
     vec![
         (
-            transform_bundle(position1, size, 9.4),
-            stair_bundle(position2 - position1),
+            transform_bundle_tile(position1, size, 9.4),
+            stair_bundle(world_coor(position2 - position1)),
         ),
         (
-            transform_bundle(position2, size, 9.4),
-            stair_bundle(position1 - position2),
+            transform_bundle_tile(position2, size, 9.4),
+            stair_bundle(world_coor(position1 - position2)),
         ),
     ]
 }
 
-fn solid_bundle_with_color(position: Vec2, size: Vec2) -> (SpriteBundle, SolidBundle) {
+fn solid_bundle_with_color(position: IVec2, size: IVec2) -> (SpriteBundle, SolidBundle) {
     (
-        sprite_bundle_pure_color(position, size, 10.0, Color::BLACK),
+        pure_color_bundle_tile(position, size, 10.0, Color::BLACK),
         solid_bundle(),
     )
 }
 
-const BORDER: f32 = 60.0;
-const INTERVAL: f32 = 10.0;
+const BORDER: i32 = 6;
+const INTERVAL: i32 = 1;
 
-const STAIR_WIDTH: f32 = 90.0;
-const ROOM_WIDTH: f32 = 120.0;
-const OUTSIDE_HEIGHT: f32 = 250.0;
-const LAYER_HEIGHT: f32 = 120.0;
+const STAIR_WIDTH: i32 = 10;
+const ROOM_WIDTH: i32 = 12;
+const OUTSIDE_HEIGHT: i32 = 25;
+const LAYER_HEIGHT: i32 = 11;
 
-pub fn shelter_position(room: IVec2, offset: Vec2) -> Vec2 {
+pub fn shelter_position(room: IVec2, offset: IVec2) -> IVec2 {
     // temp
-    let width = (ROOM_WIDTH * 7.0 + STAIR_WIDTH) / 2.0;
-    Vec2::new(
-        (room.x as f32) * ROOM_WIDTH - width,
-        -(room.y as f32) * (LAYER_HEIGHT + INTERVAL),
+    let width = (ROOM_WIDTH * 7 + STAIR_WIDTH) / 2;
+    IVec2::new(
+        room.x * ROOM_WIDTH - width,
+        -room.y * (LAYER_HEIGHT + INTERVAL),
     ) + offset
 }
 
@@ -59,13 +60,13 @@ pub fn setup_shelter(
         &mut commands,
         images,
         &mut outline_materials,
-        shelter_position(IVec2::new(3, 1), Vec2::ZERO),
+        shelter_position(IVec2::new(3, 1), IVec2::ZERO),
     );
     spawn_person(
         &mut commands,
         images,
         &mut outline_materials,
-        shelter_position(IVec2::new(2, 1), Vec2::ZERO),
+        shelter_position(IVec2::new(2, 1), IVec2::ZERO),
     );
     commands.insert_resource(SelectedPerson(id));
 
@@ -123,16 +124,15 @@ pub fn setup_shelter(
     spawn_background("demo/6.png", Vec2::new(0.0, 0.0), 0.6);
 
     // Spawn shelter
-    let real_resolution = Vec2::new(960.0, 540.0);
-    let room_number: UVec2 = UVec2::new(7, 5);
+    let room_number = IVec2::new(7, 5);
 
-    let width = (ROOM_WIDTH * room_number.x as f32 + STAIR_WIDTH) / 2.0;
-    let height = (room_number.y as f32) * (LAYER_HEIGHT + INTERVAL) + BORDER;
+    let width = (ROOM_WIDTH * room_number.x + STAIR_WIDTH) / 2;
+    let height = room_number.y * (LAYER_HEIGHT + INTERVAL) + BORDER;
 
     commands.insert_resource(CameraBoundary {
-        real_resolution,
-        negative: Vec2::new(-real_resolution.x / 2.0, -height + 0.5 * BORDER),
-        positive: Vec2::new(real_resolution.x / 2.0, OUTSIDE_HEIGHT),
+        max_width: 960.0,
+        negative: Vec2::new(-960.0 / 2.0, -height as f32 + 0.5 * BORDER as f32) * 2.0,
+        positive: Vec2::new(960.0 / 2.0, OUTSIDE_HEIGHT as f32) * 2.0,
         scale_level: 1,
         mode: CameraMode::Free,
     });
@@ -152,11 +152,11 @@ pub fn setup_shelter(
         MaterialMesh2dBundle {
             mesh: mesh.clone().into(),
             material: light2d_freeform_materials.add(Light2dFreeformMaterial { ..default() }),
-            transform: Transform {
-                translation: Vec3::new(-width - 50.0, 0.0, 1.0),
-                scale: Vec3::new(width * 2.0 + 100.0, 500.0, 0.0),
-                ..default()
-            },
+            transform: transform_2d_tile_m(
+                IVec2::new(-width - 5, 0),
+                IVec2::new(width * 2 + 10, 50),
+                1.0,
+            ),
             ..default()
         },
         RENDER_LAYER_LIGHT1,
@@ -173,11 +173,11 @@ pub fn setup_shelter(
                 color: Color::rgb(0.4, 0.4, 0.4),
                 ..default()
             }),
-            transform: Transform {
-                translation: Vec3::new(-width - 50.0, -height - 500.0, 1.0),
-                scale: Vec3::new(width * 2.0 + 100.0, height + 500.0, 0.0),
-                ..default()
-            },
+            transform: transform_2d_tile_m(
+                IVec2::new(-width - 5, -height - 50),
+                IVec2::new(width * 2 + 10, height + 50),
+                1.0,
+            ),
             ..default()
         },
         RENDER_LAYER_LIGHT1,
@@ -185,56 +185,42 @@ pub fn setup_shelter(
 
     // left border
     commands.spawn(solid_bundle_with_color(
-        Vec2::new(-width - BORDER, -height),
-        Vec2::new(BORDER, height),
+        IVec2::new(-width - BORDER, -height),
+        IVec2::new(BORDER, height),
     ));
 
     // right border
     commands.spawn(solid_bundle_with_color(
-        Vec2::new(width, -height),
-        Vec2::new(BORDER, height),
+        IVec2::new(width, -height),
+        IVec2::new(BORDER, height),
     ));
 
     // bottom border
     commands.spawn(solid_bundle_with_color(
-        Vec2::new(-width, -height),
-        Vec2::new(2.0 * width, BORDER),
+        IVec2::new(-width, -height),
+        IVec2::new(2 * width, BORDER),
     ));
 
-    let mut path_find = PathFind {
-        origin: Vec2::new(-500.0, -500.0),
-        size: UVec2::new(100, 50),
-        layers_index: vec![0; 100 * 50],
-        layers: vec![],
-    };
-    for y in 0..room_number.y {
-        let from_y = (-(y as f32 + 1.0) * (LAYER_HEIGHT + INTERVAL) + 500.0) / 10.0;
-        let to_y = from_y + (LAYER_HEIGHT + INTERVAL) / 10.0;
+    let mut path_find = PathFind::from(IVec2::new(-50, -height), IVec2::new(100, height + 30));
 
-        let from = UVec2::new(0, from_y as u32);
-        let to = UVec2::new(100, to_y as u32);
-        path_find.add_layer(
-            from,
-            to,
-            Layer {
-                id: y,
-                x_left: 0,
-                x_right: 100,
-                y: from_y as u32,
-            },
-        );
+    for y in 0..room_number.y {
+        let from_y = -(y + 1) * (LAYER_HEIGHT + INTERVAL) + 90;
+        let to_y = from_y + LAYER_HEIGHT + INTERVAL;
+
+        path_find.add_layer(IVec2::new(0, from_y), IVec2::new(100, to_y), 0, 100);
+        path_find.add_layer(IVec2::new(95, from_y + 6), IVec2::new(100, to_y), 95, 100);
     }
     commands.insert_resource(path_find);
 
     // layers
     let wall_image = asset.load("demo/wall.png");
     for y in 0..room_number.y {
-        let position_y = -(y as f32 + 1.0) * (LAYER_HEIGHT + INTERVAL);
+        let position_y = -(y + 1) * (LAYER_HEIGHT + INTERVAL);
         // rooms
         for x in 0..room_number.x {
-            commands.spawn(sprite_bundle(
-                Vec2::new(-width + (x as f32) * ROOM_WIDTH, position_y),
-                Vec2::new(ROOM_WIDTH, LAYER_HEIGHT),
+            commands.spawn(sprite_bundle_tile(
+                IVec2::new(-width + x * ROOM_WIDTH, position_y),
+                IVec2::new(ROOM_WIDTH, LAYER_HEIGHT),
                 9.0,
                 wall_image.clone(),
             ));
@@ -242,25 +228,25 @@ pub fn setup_shelter(
 
         // stair
         commands.spawn_batch(stair_bundle_pair(
-            Vec2::new(width - STAIR_WIDTH, position_y),
-            Vec2::new(width - 20.0, position_y + (LAYER_HEIGHT + INTERVAL) / 2.0),
+            IVec2::new(width - STAIR_WIDTH, position_y),
+            IVec2::new(width - 2, position_y + (LAYER_HEIGHT + INTERVAL) / 2),
         ));
         commands.spawn_batch(stair_bundle_pair(
-            Vec2::new(width - 20.0, position_y + (LAYER_HEIGHT + INTERVAL) / 2.0),
-            Vec2::new(width - STAIR_WIDTH, position_y + (LAYER_HEIGHT + INTERVAL)),
+            IVec2::new(width - 2, position_y + (LAYER_HEIGHT + INTERVAL) / 2),
+            IVec2::new(width - STAIR_WIDTH, position_y + (LAYER_HEIGHT + INTERVAL)),
         ));
         commands.spawn(solid_bundle_with_color(
-            Vec2::new(
-                width - 10.0,
-                position_y + (LAYER_HEIGHT + INTERVAL) / 2.0 - INTERVAL,
+            IVec2::new(
+                width - 1,
+                position_y + (LAYER_HEIGHT + INTERVAL) / 2 - INTERVAL,
             ),
-            Vec2::new(10.0, INTERVAL),
+            IVec2::new(1, INTERVAL),
         ));
 
         // ceil
         commands.spawn(solid_bundle_with_color(
-            Vec2::new(-width, position_y + LAYER_HEIGHT),
-            Vec2::new(2.0 * width, INTERVAL),
+            IVec2::new(-width, position_y + LAYER_HEIGHT),
+            IVec2::new(2 * width, INTERVAL),
         ));
     }
 }

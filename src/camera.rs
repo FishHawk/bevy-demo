@@ -15,7 +15,7 @@ pub enum CameraMode {
 
 #[derive(Resource, Default)]
 pub struct CameraBoundary {
-    pub real_resolution: Vec2,
+    pub max_width: f32,
     pub negative: Vec2,
     pub positive: Vec2,
     pub scale_level: i32,
@@ -53,7 +53,7 @@ pub fn update_camera(
 
         if scale_level_new != boundary.scale_level {
             boundary.scale_level = scale_level_new;
-            let scale = boundary.real_resolution.x / window.width();
+            let scale = boundary.max_width / window.width();
             let scale = scale / boundary.scale_level as f32;
             camera_transform.scale.x = scale;
             camera_transform.scale.y = scale;
@@ -100,9 +100,9 @@ pub fn update_camera(
 
         let negative = camera_center - camera_size / 2.0;
         let positive = camera_center + camera_size / 2.0;
-        let camera_center = camera_center
-            + (boundary.negative - negative).max(Vec2::ZERO)
-            + (boundary.positive - positive).min(Vec2::ZERO);
+        // let camera_center = camera_center
+        //     + (boundary.negative - negative).max(Vec2::ZERO)
+        //     + (boundary.positive - positive).min(Vec2::ZERO);
         camera_transform.translation.x = camera_center.x;
         camera_transform.translation.y = camera_center.y;
     }

@@ -6,11 +6,10 @@ use bevy::{
     },
     sprite::MaterialMesh2dBundle,
 };
-use bevy_rapier2d::prelude::Collider;
 
 use crate::{
-    moveable_bundle, selectable_bundle, spatial_bundle, MoveTo, OutlineMaterial, WorldCursor,
-    OUTLINE_MATERIAL_MESH_HANDLE,
+    moveable_bundle, selectable_bundle, spatial_bundle_tile, transform_2d, MoveTo, OutlineMaterial,
+    WorldCursor, OUTLINE_MATERIAL_MESH_HANDLE, TILE_SIZE,
 };
 
 #[derive(Resource)]
@@ -22,22 +21,15 @@ pub fn spawn_person(
     commands: &mut Commands,
     images: &mut Assets<Image>,
     outline_materials: &mut Assets<OutlineMaterial>,
-    position: Vec2,
+    position: IVec2,
 ) -> Entity {
     let person_image = load_texture("demo/person.png");
     let person_size = person_image.texture_descriptor.size;
     let person_size = Vec2::new(person_size.width as f32, person_size.height as f32);
     commands
         .spawn((
-            spatial_bundle(position, person_size, 100.0),
-            moveable_bundle(
-                Collider::compound(vec![(
-                    Vec2::new(0.0, -0.5 + 0.5 * 4.0 / person_size.y),
-                    0.0,
-                    Collider::cuboid(0.5, 0.5 * 4.0 / person_size.y),
-                )]),
-                80.0,
-            ),
+            spatial_bundle_tile(position, IVec2::ONE, 100.0),
+            moveable_bundle(80.0),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -48,6 +40,7 @@ pub fn spawn_person(
                         line_width: 0,
                         texture: images.add(person_image),
                     }),
+                    transform: transform_2d(-Vec2::new(0.5, 0.5), person_size / TILE_SIZE, 100.0),
                     ..default()
                 },
                 selectable_bundle(),
