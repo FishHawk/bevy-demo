@@ -5,29 +5,27 @@ use crate::{
     stair_bundle, transform_2d_tile_m, transform_bundle_tile, world_coor, Background,
     BackgroundBundle, BackgroundMaterial, BackgroundMaterialImages, BackgroundRepeat,
     CameraBoundary, CameraMode, GameDateTimeText, Light2dFreeformMaterial, LightIntensity,
-    OutlineMaterial, PathFind, SelectedPerson, SolidBundle, StairBundle, RENDER_LAYER_LIGHT1,
-    RENDER_LAYER_MAIN2,
+    OutlineMaterial, PathFinder, SelectedPerson, RENDER_LAYER_LIGHT1, RENDER_LAYER_MAIN2,
 };
 
-fn stair_bundle_pair(position1: IVec2, position2: IVec2) -> Vec<(TransformBundle, StairBundle)> {
+fn spawn_stair_pair(commands: &mut Commands, position1: IVec2, position2: IVec2) {
     let size = IVec2::new(2, 1);
-    vec![
-        (
-            transform_bundle_tile(position1, size, 9.4),
-            stair_bundle(world_coor(position2 - position1)),
-        ),
-        (
-            transform_bundle_tile(position2, size, 9.4),
-            stair_bundle(world_coor(position1 - position2)),
-        ),
-    ]
+    commands.spawn((
+        transform_bundle_tile(position1, size, 9.4),
+        stair_bundle(world_coor(position2 - position1)),
+    ));
+
+    commands.spawn((
+        transform_bundle_tile(position2, size, 9.4),
+        stair_bundle(world_coor(position1 - position2)),
+    ));
 }
 
-fn solid_bundle_with_color(position: IVec2, size: IVec2) -> (SpriteBundle, SolidBundle) {
-    (
+fn spawn_solid(commands: &mut Commands, position: IVec2, size: IVec2) {
+    commands.spawn((
         pure_color_bundle_tile(position, size, 10.0, Color::BLACK),
         solid_bundle(),
-    )
+    ));
 }
 
 const BORDER: i32 = 6;
@@ -38,13 +36,13 @@ const ROOM_WIDTH: i32 = 12;
 const OUTSIDE_HEIGHT: i32 = 25;
 const LAYER_HEIGHT: i32 = 11;
 
-pub fn shelter_position(room: IVec2, offset: IVec2) -> IVec2 {
+pub fn shelter_position(room: IVec2) -> IVec2 {
     // temp
     let width = (ROOM_WIDTH * 7 + STAIR_WIDTH) / 2;
     IVec2::new(
         room.x * ROOM_WIDTH - width,
         -room.y * (LAYER_HEIGHT + INTERVAL),
-    ) + offset
+    )
 }
 
 pub fn setup_shelter(
@@ -60,13 +58,13 @@ pub fn setup_shelter(
         &mut commands,
         images,
         &mut outline_materials,
-        shelter_position(IVec2::new(3, 1), IVec2::ZERO),
+        shelter_position(IVec2::new(3, 1)),
     );
     spawn_person(
         &mut commands,
         images,
         &mut outline_materials,
-        shelter_position(IVec2::new(2, 1), IVec2::ZERO),
+        shelter_position(IVec2::new(2, 1)),
     );
     commands.insert_resource(SelectedPerson(id));
 
@@ -89,7 +87,7 @@ pub fn setup_shelter(
         GameDateTimeText,
     ));
 
-    // Spawn background
+    // Background
     let mut spawn_background = |texture_path: &str, speed: Vec2, z: f32| {
         let background_images = BackgroundMaterialImages::palette(
             images,
@@ -137,6 +135,7 @@ pub fn setup_shelter(
         mode: CameraMode::Free,
     });
 
+    // Background light
     let mesh = meshes.add(freeform_polygon_mesh(
         vec![
             Vec2::new(0.0, 1.0),
@@ -146,8 +145,6 @@ pub fn setup_shelter(
         ],
         0.0,
     ));
-
-    // background light
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: mesh.clone().into(),
@@ -183,70 +180,81 @@ pub fn setup_shelter(
         RENDER_LAYER_LIGHT1,
     ));
 
-    // left border
-    commands.spawn(solid_bundle_with_color(
+    // Move
+    let mut platforms = vec![];
+    let mut stairs = vec![];
+
+    // Solid
+    spawn_solid(
+        &mut commands,
         IVec2::new(-width - BORDER, -height),
         IVec2::new(BORDER, height),
-    ));
-
-    // right border
-    commands.spawn(solid_bundle_with_color(
+    );
+    spawn_solid(
+        &mut commands,
         IVec2::new(width, -height),
         IVec2::new(BORDER, height),
-    ));
+    );
+    for i in 0..room_number.y + 1 {
+        let floor_y = -i * (LAYER_HEIGHT + INTERVAL);
+        let size_y = if i == room_number.y { BORDER } else { INTERVAL };
 
-    // bottom border
-    commands.spawn(solid_bundle_with_color(
-        IVec2::new(-width, -height),
-        IVec2::new(2 * width, BORDER),
-    ));
+        let y = floor_y - size_y;
+        spawn_solid(
+            &mut commands,
+            IVec2::new(-width, y),
+            IVec2::new(2 * width, size_y),
+        );
+        platforms.push((
+            IVec2::new(-width - 100, y),
+            IVec2::new(2 * width + 200, LAYER_HEIGHT + size_y),
+        ));
 
-    let mut path_find = PathFind::from(IVec2::new(-50, -height), IVec2::new(100, height + 30));
-
-    for y in 0..room_number.y {
-        let from_y = -(y + 1) * (LAYER_HEIGHT + INTERVAL) + 90;
-        let to_y = from_y + LAYER_HEIGHT + INTERVAL;
-
-        path_find.add_layer(IVec2::new(0, from_y), IVec2::new(100, to_y), 0, 100);
-        path_find.add_layer(IVec2::new(95, from_y + 6), IVec2::new(100, to_y), 95, 100);
+        if i != 0 {
+            let y = floor_y + (LAYER_HEIGHT + INTERVAL) / 2 - INTERVAL;
+            spawn_solid(
+                &mut commands,
+                IVec2::new(width - 1, y),
+                IVec2::new(1, INTERVAL),
+            );
+            platforms.push((
+                IVec2::new(width - 2, y),
+                IVec2::new(100, (LAYER_HEIGHT + INTERVAL) / 2),
+            ));
+        }
     }
-    commands.insert_resource(path_find);
 
-    // layers
-    let wall_image = asset.load("demo/wall.png");
+    // Stair
+    for i in 1..room_number.y + 1 {
+        let floor_y = -i * (LAYER_HEIGHT + INTERVAL);
+        let pos1 = IVec2::new(width - STAIR_WIDTH, floor_y);
+        let pos2 = pos1 + IVec2::new(STAIR_WIDTH - 2, (LAYER_HEIGHT + INTERVAL) / 2);
+        let pos3 = pos1 + IVec2::new(0, LAYER_HEIGHT + INTERVAL);
+        spawn_stair_pair(&mut commands, pos3, pos2);
+        spawn_stair_pair(&mut commands, pos2, pos1);
+        stairs.push((pos3, pos2));
+        stairs.push((pos2, pos1));
+    }
+
+    // Path finder
+    commands.insert_resource(PathFinder::new(
+        IVec2::new(-50, -height),
+        IVec2::new(100, height + 30),
+        platforms,
+        stairs,
+    ));
+
+    // Room
+    let room_wall_image = asset.load("demo/wall.png");
     for y in 0..room_number.y {
         let position_y = -(y + 1) * (LAYER_HEIGHT + INTERVAL);
-        // rooms
         for x in 0..room_number.x {
             commands.spawn(sprite_bundle_tile(
                 IVec2::new(-width + x * ROOM_WIDTH, position_y),
                 IVec2::new(ROOM_WIDTH, LAYER_HEIGHT),
                 9.0,
-                wall_image.clone(),
+                room_wall_image.clone(),
             ));
         }
-
-        // stair
-        commands.spawn_batch(stair_bundle_pair(
-            IVec2::new(width - STAIR_WIDTH, position_y),
-            IVec2::new(width - 2, position_y + (LAYER_HEIGHT + INTERVAL) / 2),
-        ));
-        commands.spawn_batch(stair_bundle_pair(
-            IVec2::new(width - 2, position_y + (LAYER_HEIGHT + INTERVAL) / 2),
-            IVec2::new(width - STAIR_WIDTH, position_y + (LAYER_HEIGHT + INTERVAL)),
-        ));
-        commands.spawn(solid_bundle_with_color(
-            IVec2::new(
-                width - 1,
-                position_y + (LAYER_HEIGHT + INTERVAL) / 2 - INTERVAL,
-            ),
-            IVec2::new(1, INTERVAL),
-        ));
-
-        // ceil
-        commands.spawn(solid_bundle_with_color(
-            IVec2::new(-width, position_y + LAYER_HEIGHT),
-            IVec2::new(2 * width, INTERVAL),
-        ));
     }
 }

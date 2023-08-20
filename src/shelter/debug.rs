@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::render::{DebugRenderContext, RapierDebugRenderPlugin};
 
-use crate::{world_coor, Moveable, PathFind, Stair};
+use crate::{world_coor, Moveable, PathFinder, Stair};
 
 pub struct DebugPlugin;
 
@@ -60,7 +60,7 @@ fn debug_render_components(
 fn debug_render_path_find(
     mut gizmos: Gizmos,
     debug_context: Res<DebugContext>,
-    path_find: Res<PathFind>,
+    path_find: Res<PathFinder>,
 ) {
     if !debug_context.should_render_path_find {
         return;
@@ -77,7 +77,7 @@ fn debug_render_path_find(
     for x in 0..path_find.size.x {
         for y in 0..path_find.size.y {
             let index = x * path_find.size.y + y;
-            let index = path_find.layers_index[index as usize];
+            let index = path_find.platforms_index[index as usize];
             gizmos.rect_2d(
                 world_coor(IVec2::new(x, y) + path_find.position) + world_coor(IVec2::ONE) / 2.0,
                 0.0,
