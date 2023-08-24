@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::prelude::*;
 use itertools::Itertools;
 use petgraph::{algo::dijkstra, prelude::*};
 
@@ -10,13 +10,17 @@ pub struct PathFinder {
     pub size: IVec2,
     pub platforms_index: Vec<usize>,
     pub platforms: Vec<Platform>,
+    pub platform_to_nodes: Vec<(usize, usize)>,
+    pub node_position: Vec<IVec2>,
+    pub node_nav_matrix: Vec<Vec<(MoveIntendHorizontal, MoveIntendVertical)>>,
 }
 
 pub struct Platform {
     pub id: usize,
     pub span_left: usize,
     pub span_right: usize,
-    pub offset: i32,
+    pub left: i32,
+    pub right: i32,
 }
 
 pub struct Node {
@@ -39,6 +43,9 @@ impl PathFinder {
             size,
             platforms_index: vec![0; (size.x * size.y) as usize],
             platforms: Default::default(),
+            platform_to_nodes: Default::default(),
+            node_position: Default::default(),
+            node_nav_matrix: Default::default(),
         };
 
         // Add platforms
@@ -57,23 +64,26 @@ impl PathFinder {
                 id: pf.platforms.len(),
                 span_left,
                 span_right,
-                offset: from.x,
+                left: from.x,
+                right: to.x,
             };
             span_left = span_right;
             pf.platforms.push(platform);
         }
+        pf.platform_to_nodes = vec![(usize::MAX, usize::MAX); span_left];
 
         // Build graph
-        let mut graph = UnGraph::<(), f32>::default();
-        let mut tile_to_node = HashMap::<IVec2, NodeIndex>::default();
+        let mut graph = UnGraph::<usize, f32>::default();
         for (src, dst) in stairs {
             let src = pf.relative_position(src);
             let dst = pf.relative_position(dst);
 
-            let mut get_node = |pos: IVec2| {
-                *tile_to_node
-                    .entry(pos)
-                    .or_insert_with(|| graph.add_node(()))
+            let mut get_node = |pos: IVec2| match pf.node_position.iter().position(|&x| x == pos) {
+                Some(index) => NodeIndex::new(index),
+                None => {
+                    pf.node_position.push(pos);
+                    graph.add_node(graph.node_count())
+                }
             };
             let node_src = get_node(src);
             let node_dst = get_node(dst);
@@ -81,27 +91,45 @@ impl PathFinder {
             graph.add_edge(node_src, node_dst, weight);
         }
 
-        let mut nodes_on_each_platforms = vec![];
         for platform in pf.platforms.iter() {
-            let nodes_on_this_platforms = tile_to_node
+            let nodes = pf
+                .node_position
                 .iter()
-                .filter_map(|(key, value)| {
-                    if pf.get_platform(*key).id == platform.id {
-                        Some((key, value))
-                    } else {
-                        None
-                    }
-                })
-                .sorted_unstable_by_key(|it| -it.0.x)
-                .collect::<Vec<(&IVec2, &NodeIndex)>>();
+                .map(|it| it.clone())
+                .enumerate()
+                .filter(|(_index, pos)| pf.get_platform(*pos).id == platform.id)
+                .sorted_unstable_by_key(|(_index, pos)| (*pos).x)
+                .collect::<Vec<(usize, IVec2)>>();
 
-            for i in 1..nodes_on_this_platforms.len() {
-                let (src, node_src) = nodes_on_this_platforms[i - 1];
-                let (dst, node_dst) = nodes_on_this_platforms[i];
-                let weight = (dst.distance_squared(*src) as f32).sqrt();
-                graph.add_edge(*node_src, *node_dst, weight);
+            for i in 1..nodes.len() {
+                let (node_src, src) = nodes[i - 1];
+                let (node_dst, dst) = nodes[i];
+                let weight = (dst.distance_squared(src) as f32).sqrt();
+                graph.add_edge(NodeIndex::new(node_src), NodeIndex::new(node_dst), weight);
             }
-            nodes_on_each_platforms.push(nodes_on_this_platforms);
+
+            for i in 0..nodes.len() + 1 {
+                let (left, node_left) = if i == 0 {
+                    (platform.left, usize::MAX)
+                } else {
+                    let (node, pos) = nodes[i - 1];
+                    (pos.x, node)
+                };
+                let (right, node_right) = if i == nodes.len() {
+                    (platform.right, usize::MAX)
+                } else {
+                    let (node, pos) = nodes[i];
+                    (pos.x, node)
+                };
+                let left = platform.span_left + (left - platform.left) as usize;
+                let right = platform.span_left + (right - platform.left) as usize;
+                pf.platform_to_nodes[left..right]
+                    .iter_mut()
+                    .for_each(|it| *it = (node_left, node_right));
+                if i != 0 {
+                    pf.platform_to_nodes[left] = (node_left, node_left);
+                }
+            }
         }
 
         // Build next node matrix
@@ -109,16 +137,69 @@ impl PathFinder {
             .map(|i| {
                 dijkstra(&graph, NodeIndex::new(i), None, |edge| *edge.weight())
                     .into_iter()
-                    .sorted_by_key(|it| it.0)
-                    .collect::<Vec<(NodeIndex, f32)>>()
+                    .sorted_by_key(|(node_index, _)| node_index.index())
+                    .map(|(_, distance)| distance)
+                    .collect::<Vec<f32>>()
             })
-            .collect::<Vec<Vec<(NodeIndex, f32)>>>();
+            .collect::<Vec<Vec<f32>>>();
 
-        // Build intent index
-        let total_tile = span_left;
-        let tile_to_node = vec![(usize::MAX, usize::MAX); total_tile];
-        let tile_to_intent =
-            vec![(MoveIntendHorizontal::None, MoveIntendVertical::None); total_tile];
+        let mut next_step_matrix = vec![];
+        for src in 0..graph.node_count() {
+            let neighbors = graph
+                .edges(NodeIndex::new(src))
+                .map(|it| (it.target().index(), *it.weight()))
+                .collect::<Vec<(usize, f32)>>();
+
+            let mut next_step_vec = vec![];
+            for dst in 0..graph.node_count() {
+                if src == dst {
+                    next_step_vec.push(src);
+                } else {
+                    let (next_step, _) = neighbors
+                        .iter()
+                        .min_by(|(n1, w1), (n2, w2)| {
+                            let n1_cost = shortest_distance_matrix[*n1][dst] + w1;
+                            let n2_cost = shortest_distance_matrix[*n2][dst] + w2;
+                            n1_cost.partial_cmp(&n2_cost).unwrap()
+                        })
+                        .unwrap();
+                    next_step_vec.push(*next_step);
+                }
+            }
+            next_step_matrix.push(next_step_vec);
+        }
+
+        pf.node_nav_matrix =
+            vec![
+                vec![(MoveIntendHorizontal::None, MoveIntendVertical::None); graph.node_count()];
+                graph.node_count()
+            ];
+        for src in 0..graph.node_count() {
+            for dst in 0..graph.node_count() {
+                let src_pos = pf.node_position[graph.raw_nodes().get(src).unwrap().weight];
+                let dst_pos = pf.node_position[graph.raw_nodes().get(dst).unwrap().weight];
+                pf.node_nav_matrix[src][dst] =
+                    if pf.get_platform(src_pos).id == pf.get_platform(dst_pos).id {
+                        (
+                            if src_pos.x < dst_pos.x {
+                                MoveIntendHorizontal::Right
+                            } else {
+                                MoveIntendHorizontal::Left
+                            },
+                            MoveIntendVertical::None,
+                        )
+                    } else {
+                        (
+                            MoveIntendHorizontal::None,
+                            if src_pos.y < dst_pos.y {
+                                MoveIntendVertical::Up
+                            } else {
+                                MoveIntendVertical::Down
+                            },
+                        )
+                    };
+            }
+        }
 
         pf
     }
@@ -140,22 +221,61 @@ impl PathFinder {
         let index = self.platforms_index[index as usize];
         &self.platforms[index]
     }
+
+    fn get_neighbor_nodes(
+        &self,
+        relative_position: IVec2,
+    ) -> (Option<(usize, f32)>, Option<(usize, f32)>) {
+        let node_with_distance = |n: usize| {
+            if n == usize::MAX {
+                None
+            } else {
+                let d = (self.node_position[n].distance_squared(relative_position) as f32).sqrt();
+                Some((n, d))
+            }
+        };
+        let platform = self.get_platform(relative_position);
+        let index = platform.span_left + (relative_position.x - platform.left) as usize;
+        let (n1, n2) = self.platform_to_nodes[index];
+        (node_with_distance(n1), node_with_distance(n2))
+    }
+
+    fn get_intends_p2p(&self, src: Vec2, dst: Vec2) {
+        let src = tile_coor(src);
+        let dst = tile_coor(dst);
+
+        let src = self.relative_position(src);
+        let dst = self.relative_position(dst);
+
+        let (sp1, sp2) = self.get_neighbor_nodes(src);
+        let (dp1, dp2) = self.get_neighbor_nodes(dst);
+    }
+
+    fn measure_distance(&self, src_pair: Option<(usize, f32)>, dst_pair: Option<(usize, f32)>) {
+        if let (Some((sn, sd)), Some((dn, dd))) = (src_pair, dst_pair) {
+            // sd + dd + self.node_nav_matrix[sn][dn];
+        }
+    }
 }
 
 pub fn update_move_intend(
     mut commands: Commands,
-    path_find: Res<PathFinder>,
+    pf: Res<PathFinder>,
     mut moveable_query: Query<(Entity, &mut Moveable, &Transform, &MoveTo)>,
 ) {
     for (entity, mut moveable, transform, move_to) in moveable_query.iter_mut() {
         let src = tile_coor(transform.translation.truncate());
         let dst = tile_coor(move_to.0);
 
-        let r_src = path_find.relative_position(src);
-        let r_dst = path_find.relative_position(dst);
+        let r_src = pf.relative_position(src);
+        let r_dst = pf.relative_position(dst);
 
-        let layer_from = path_find.get_platform(r_src);
-        let layer_to = path_find.get_platform(r_dst);
+        // let (n_src_1, n_src_2) = pf.get_neighbor_nodes(r_src);
+        // let (n_src_1, n_dst_2) = pf.get_neighbor_nodes(r_dst);
+        // println!("{}, {}", n1, n2);
+
+        let layer_from = pf.get_platform(r_src);
+        let layer_to = pf.get_platform(r_dst);
 
         moveable.intend_horizontal = if layer_from.id == layer_to.id {
             if src.x < dst.x {
