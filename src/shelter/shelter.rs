@@ -89,12 +89,8 @@ pub fn setup_shelter(
 
     // Background
     let mut spawn_background = |texture_path: &str, speed: Vec2, z: f32| {
-        let background_images = BackgroundMaterialImages::palette(
-            images,
-            BackgroundRepeat::X,
-            texture_path,
-            "demo/lut.png",
-        );
+        let background_images =
+            BackgroundMaterialImages::simple(images, BackgroundRepeat::None, texture_path);
         commands.spawn((
             BackgroundBundle {
                 material_bundle: BackgroundMaterial::bundle(
@@ -102,24 +98,25 @@ pub fn setup_shelter(
                     background_images,
                 ),
                 background: Background {
-                    position: Vec2::new(0.0, -324.0 / 2.0),
-                    offset: Vec2::new(0.0, 1.5),
+                    position: Vec2::new(0.0, -384.0),
+                    offset: Vec2::new(0.0, 1.0),
                     speed,
                     z,
-                    scale: 0.5,
+                    scale: 1.0,
                     ..default()
                 },
             },
-            RENDER_LAYER_MAIN2,
+            // RENDER_LAYER_MAIN1,
         ));
     };
 
-    spawn_background("demo/1.png", Vec2::new(0.0, 0.5), 0.1);
-    spawn_background("demo/2.png", Vec2::new(0.0, 0.2), 0.2);
-    spawn_background("demo/3.png", Vec2::new(0.0, 0.1), 0.3);
-    spawn_background("demo/4.png", Vec2::new(0.0, 0.0), 0.4);
-    spawn_background("demo/5.png", Vec2::new(0.0, 0.0), 0.5);
-    spawn_background("demo/6.png", Vec2::new(0.0, 0.0), 0.6);
+    spawn_background("b1.png", Vec2::new(0.0, 0.5), 0.1);
+    // spawn_background("demo/1.png", Vec2::new(0.0, 0.5), 0.1);
+    // spawn_background("demo/2.png", Vec2::new(0.0, 0.2), 0.2);
+    // spawn_background("demo/3.png", Vec2::new(0.0, 0.1), 0.3);
+    // spawn_background("demo/4.png", Vec2::new(0.0, 0.0), 0.4);
+    // spawn_background("demo/5.png", Vec2::new(0.0, 0.0), 0.5);
+    // spawn_background("demo/6.png", Vec2::new(0.0, 0.0), 0.6);
 
     // Spawn shelter
     let room_number = IVec2::new(7, 5);
